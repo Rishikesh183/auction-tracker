@@ -13,6 +13,9 @@ export default function LivePage() {
     const { teams, loading: teamsLoading } = useTeams();
     const [completedPlayers, setCompletedPlayers] = useState<any[]>([]);
     const [prevBidCount, setPrevBidCount] = useState(0);
+    const [showCurrentPlayerHistory, setShowCurrentPlayerHistory] = useState(false);
+    const [expandedSoldPlayer, setExpandedSoldPlayer] = useState<string | null>(null);
+    const [soldPlayerBids, setSoldPlayerBids] = useState<{ [key: string]: any[] }>({});
 
     // Fetch completed players
     useEffect(() => {
@@ -158,36 +161,59 @@ export default function LivePage() {
                             </CardContent>
                         </Card>
 
-                        {/* Bidding History */}
-                        <Card className="mt-6 bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                            <CardHeader>
-                                <CardTitle className="text-2xl">Bidding History</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-2 max-h-96 overflow-y-auto">
-                                    {biddingHistory.length > 0 ? (
-                                        biddingHistory.map((bid) => (
-                                            <div
-                                                key={bid.id}
-                                                className="bg-white/5 rounded-lg p-4 flex justify-between items-center hover:bg-white/10 transition-colors"
-                                            >
-                                                <div>
-                                                    <div className="font-semibold">{bid.team}</div>
-                                                    <div className="text-sm text-white/60">
-                                                        {new Date(bid.timestamp).toLocaleTimeString()}
-                                                    </div>
-                                                </div>
-                                                <Badge className="bg-green-500 text-black text-lg px-3 py-1">
-                                                    ₹{bid.amount} Cr
-                                                </Badge>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-center text-white/60 py-8">No bids yet</p>
-                                    )}
+                        {/* Bidding History - Collapsible for Current Player */}
+                        {currentPlayer && (
+                            <Card className="mt-6 bg-white/10 backdrop-blur-lg border-white/20 text-white">
+                                <CardHeader>
+                                    <button
+                                        onClick={() => setShowCurrentPlayerHistory(!showCurrentPlayerHistory)}
+                                        className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
+                                    >
+                                        <CardTitle className="text-2xl">Bidding History - {currentPlayer.name}</CardTitle>
+                                        <svg
+                                            className={`w-6 h-6 transition-transform duration-300 ${showCurrentPlayerHistory ? 'rotate-180' : ''}`}
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                </CardHeader>
+                                <div
+                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                                        showCurrentPlayerHistory ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                                    }`}
+                                >
+                                    <CardContent>
+                                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                                            {biddingHistory.filter(bid => bid.player_id === currentPlayer.id).length > 0 ? (
+                                                biddingHistory
+                                                    .filter(bid => bid.player_id === currentPlayer.id)
+                                                    .map((bid) => (
+                                                        <div
+                                                            key={bid.id}
+                                                            className="bg-white/5 rounded-lg p-4 flex justify-between items-center hover:bg-white/10 transition-colors border border-white/10"
+                                                        >
+                                                            <div>
+                                                                <div className="font-semibold">{bid.team}</div>
+                                                                <div className="text-sm text-white/60">
+                                                                    {new Date(bid.timestamp).toLocaleTimeString()}
+                                                                </div>
+                                                            </div>
+                                                            <Badge className="bg-green-500 text-black text-lg px-3 py-1">
+                                                                ₹{bid.amount} Cr
+                                                            </Badge>
+                                                        </div>
+                                                    ))
+                                            ) : (
+                                                <p className="text-center text-white/60 py-8">No bids yet for this player</p>
+                                            )}
+                                        </div>
+                                    </CardContent>
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </Card>
+                        )}
                     </div>
 
                     {/* Sidebar */}
@@ -227,25 +253,88 @@ export default function LivePage() {
                             </CardContent>
                         </Card>
 
-                        {/* Completed Players */}
+                        {/* Completed Players with Collapsible History */}
                         <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
                             <CardHeader>
                                 <CardTitle className="text-xl">Sold Players</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                <div className="space-y-3 max-h-[600px] overflow-y-auto">
                                     {completedPlayers.length > 0 ? (
                                         completedPlayers.map((player) => (
                                             <div
                                                 key={player.id}
-                                                className="bg-white/5 rounded-lg p-3 space-y-1"
+                                                className="bg-white/5 rounded-lg border border-white/10 overflow-hidden"
                                             >
-                                                <div className="font-semibold text-sm">{player.name}</div>
-                                                <div className="flex justify-between items-center text-xs">
-                                                    <span className="text-white/60">{player.leading_team}</span>
-                                                    <Badge className="bg-yellow-500 text-black">
-                                                        ₹{player.current_bid} Cr
-                                                    </Badge>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (expandedSoldPlayer === player.id) {
+                                                            setExpandedSoldPlayer(null);
+                                                        } else {
+                                                            setExpandedSoldPlayer(player.id);
+                                                            // Fetch bidding history for this player if not already loaded
+                                                            if (!soldPlayerBids[player.id]) {
+                                                                const { supabase } = await import('@/lib/supabaseClient');
+                                                                const { data } = await supabase
+                                                                    .from('bidding_history')
+                                                                    .select('*')
+                                                                    .eq('player_id', player.id)
+                                                                    .order('timestamp', { ascending: false });
+                                                                if (data) {
+                                                                    setSoldPlayerBids(prev => ({ ...prev, [player.id]: data }));
+                                                                }
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="w-full p-3 hover:bg-white/5 transition-colors text-left"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="font-semibold text-sm">{player.name}</div>
+                                                            <div className="flex justify-between items-center text-xs mt-1">
+                                                                <span className="text-white/60">{player.leading_team}</span>
+                                                                <Badge className="bg-yellow-500 text-black">
+                                                                    ₹{player.current_bid} Cr
+                                                                </Badge>
+                                                            </div>
+                                                        </div>
+                                                        <svg
+                                                            className={`w-5 h-5 ml-2 transition-transform duration-300 ${expandedSoldPlayer === player.id ? 'rotate-180' : ''}`}
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </div>
+                                                </button>
+                                                <div
+                                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                                                        expandedSoldPlayer === player.id ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
+                                                    }`}
+                                                >
+                                                    <div className="px-3 pb-3 space-y-2 border-t border-white/10 pt-2">
+                                                        {soldPlayerBids[player.id] && soldPlayerBids[player.id].length > 0 ? (
+                                                            soldPlayerBids[player.id].map((bid: any) => (
+                                                                <div
+                                                                    key={bid.id}
+                                                                    className="bg-white/5 rounded p-2 flex justify-between items-center text-xs"
+                                                                >
+                                                                    <div>
+                                                                        <div className="font-medium">{bid.team}</div>
+                                                                        <div className="text-white/50 text-[10px]">
+                                                                            {new Date(bid.timestamp).toLocaleTimeString()}
+                                                                        </div>
+                                                                    </div>
+                                                                    <Badge className="bg-green-500 text-black text-xs px-2 py-0.5">
+                                                                        ₹{bid.amount} Cr
+                                                                    </Badge>
+                                                                </div>
+                                                            ))
+                                                        ) : expandedSoldPlayer === player.id ? (
+                                                            <p className="text-center text-white/50 py-2 text-xs">Loading...</p>
+                                                        ) : null}
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))

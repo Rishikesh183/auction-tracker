@@ -348,6 +348,64 @@ export default function AdminPage() {
                                             ))}
                                         </div>
 
+                                        {/* Quick Bid Buttons */}
+                                        <div>
+                                            <label className="block text-sm font-medium mb-2">Quick Bid Increments</label>
+                                            <div className="grid grid-cols-3 gap-2 mb-3">
+                                                <button
+                                                    onClick={() => setBidAmount(currentPlayer.base_price.toString())}
+                                                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors border border-blue-400"
+                                                >
+                                                    Base Price
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
+                                                        setBidAmount((current + 0.2).toFixed(2));
+                                                    }}
+                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"
+                                                >
+                                                    +20L
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
+                                                        setBidAmount((current + 0.25).toFixed(2));
+                                                    }}
+                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"
+                                                >
+                                                    +25L
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
+                                                        setBidAmount((current + 0.5).toFixed(2));
+                                                    }}
+                                                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors border border-indigo-400"
+                                                >
+                                                    +50L
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
+                                                        setBidAmount((current + 1).toFixed(2));
+                                                    }}
+                                                    className="px-3 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium transition-colors border border-pink-400"
+                                                >
+                                                    +1 Cr
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
+                                                        setBidAmount((current + 2).toFixed(2));
+                                                    }}
+                                                    className="px-3 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium transition-colors border border-pink-400"
+                                                >
+                                                    +2 Cr
+                                                </button>
+                                            </div>
+                                        </div>
+
                                         <Input
                                             type="number"
                                             step="0.1"
