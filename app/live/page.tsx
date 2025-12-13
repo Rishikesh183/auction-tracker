@@ -17,41 +17,118 @@ export default function LivePage() {
     const [showCurrentPlayerHistory, setShowCurrentPlayerHistory] = useState(false);
     const [expandedSoldPlayer, setExpandedSoldPlayer] = useState<string | null>(null);
     const [soldPlayerBids, setSoldPlayerBids] = useState<{ [key: string]: any[] }>({});
+    const [unsoldPlayers, setUnsoldPlayers] = useState<any[]>([]);
+    const [showSoldAnimation, setShowSoldAnimation] = useState(false);
+    const [displayPlayer, setDisplayPlayer] = useState<any | null>(null);
+    const [showUnsoldAnimation, setShowUnsoldAnimation] = useState(false);
+    const [lastAnimatedPlayerId, setLastAnimatedPlayerId] = useState<string | null>(
+        typeof window !== 'undefined'
+            ? localStorage.getItem('lastAnimatedPlayerId')
+            : null
+    );
+
     const router = useRouter();
 
-    // Fetch completed players
+    // Initialize - mark already completed players as handled
     useEffect(() => {
-        const fetchCompleted = async () => {
+        if (!currentPlayer) return;
+
+        // Only LIVE players are shown normally
+        if (currentPlayer.status === 'live') {
+            setDisplayPlayer(currentPlayer);
+        }
+    }, [currentPlayer]);
+
+
+    // Watch for player status changes (finalize/unsold) - ONLY ONCE per player
+    useEffect(() => {
+        if (
+            currentPlayer &&
+            currentPlayer.status === 'completed' &&
+            currentPlayer.id !== lastAnimatedPlayerId
+        ) {
+            setLastAnimatedPlayerId(currentPlayer.id);
+            localStorage.setItem('lastAnimatedPlayerId', currentPlayer.id);
+            toast.success(`🎉 Player SOLD!`, {
+                description: `${currentPlayer.name} sold to ${currentPlayer.leading_team} for ₹${currentPlayer.current_bid} Cr`,
+                duration: 4000,
+            });
+
+            setShowSoldAnimation(true);
+            setDisplayPlayer(currentPlayer); // show ONLY for animation
+
+            setTimeout(() => {
+                setShowSoldAnimation(false);
+                setDisplayPlayer(null); // ✅ clear after animation
+            }, 3000);
+        }
+    }, [currentPlayer, lastAnimatedPlayerId]);
+
+
+    // Fetch completed and unsold players
+    useEffect(() => {
+        const fetchPlayers = async () => {
             const { supabase } = await import('@/lib/supabaseClient');
-            const { data } = await supabase
+
+            // Fetch completed players
+            const { data: completed } = await supabase
                 .from('current_player')
                 .select('*')
                 .eq('status', 'completed')
                 .order('updated_at', { ascending: false })
-                .limit(10);
+                .limit(20);
 
-            if (data) {
-                setCompletedPlayers(data);
+            if (completed) {
+                setCompletedPlayers(completed);
+            }
+
+            // Fetch unsold players
+            const { data: unsold } = await supabase
+                .from('current_player')
+                .select('*')
+                .eq('status', 'unsold')
+                .order('updated_at', { ascending: false })
+                .limit(20);
+
+            if (unsold) {
+                setUnsoldPlayers(unsold);
             }
         };
 
-        fetchCompleted();
+        fetchPlayers();
 
-        // Subscribe to completed players
+        // Subscribe to player status changes
         const setupSubscription = async () => {
             const { supabase } = await import('@/lib/supabaseClient');
             const channel = supabase
-                .channel('completed_players')
+                .channel('player_status_changes')
                 .on(
                     'postgres_changes',
                     {
                         event: 'UPDATE',
                         schema: 'public',
                         table: 'current_player',
-                        filter: 'status=eq.completed',
                     },
-                    (payload) => {
-                        setCompletedPlayers((prev) => [payload.new, ...prev].slice(0, 10));
+                    (payload: any) => {
+                        const updatedPlayer = payload.new;
+
+                        if (updatedPlayer.status === 'completed') {
+                            setCompletedPlayers((prev) => {
+                                const filtered = prev.filter(p => p.id !== updatedPlayer.id);
+                                return [updatedPlayer, ...filtered].slice(0, 20);
+                            });
+                            // Remove from unsold if it was there
+                            setUnsoldPlayers((prev) => prev.filter(p => p.id !== updatedPlayer.id));
+                        }
+                        else if (updatedPlayer.status === 'unsold') {
+                            setUnsoldPlayers((prev) => {
+                                const filtered = prev.filter(p => p.id !== updatedPlayer.id);
+                                return [updatedPlayer, ...filtered].slice(0, 20);
+                            });
+                            // Remove from completed if it was there
+                            setCompletedPlayers((prev) => prev.filter(p => p.id !== updatedPlayer.id));
+                            setDisplayPlayer(null); // 👈 IMPORTANT
+                        }
                     }
                 )
                 .subscribe();
@@ -75,6 +152,29 @@ export default function LivePage() {
         }
         setPrevBidCount(biddingHistory.length);
     }, [biddingHistory, prevBidCount]);
+
+    useEffect(() => {
+        if (
+            currentPlayer &&
+            currentPlayer.status === 'unsold' &&
+            currentPlayer.id !== lastAnimatedPlayerId
+        ) {
+            setLastAnimatedPlayerId(currentPlayer.id);
+
+            toast.error(`❌ UNSOLD`, {
+                description: `${currentPlayer.name} went unsold`,
+                duration: 4000,
+            });
+
+            setShowUnsoldAnimation(true);
+            setDisplayPlayer(currentPlayer);
+
+            setTimeout(() => {
+                setShowUnsoldAnimation(false);
+                setDisplayPlayer(null);
+            }, 3000);
+        }
+    }, [currentPlayer, lastAnimatedPlayerId]);
 
     if (playerLoading || historyLoading || teamsLoading) {
         return (
@@ -107,50 +207,95 @@ export default function LivePage() {
                                 <CardTitle className="text-3xl text-center">Current Player</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {currentPlayer ? (
-                                    <div className="space-y-6">
+                                {displayPlayer ? (
+                                    <div className="space-y-6 relative">
+                                        {/* SOLD Animation Overlay */}
+                                        {showSoldAnimation && displayPlayer.status === 'completed' && (
+                                            <div className="absolute inset-0 z-50 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 rounded-xl flex flex-col items-center justify-center animate-pulse">
+                                                <div className="text-6xl md:text-8xl font-bold text-white mb-4 animate-bounce">
+                                                    SOLD!
+                                                </div>
+                                                <div className="text-3xl md:text-4xl font-bold text-white mb-2">
+                                                    {displayPlayer.leading_team}
+                                                </div>
+                                                <div className="text-4xl md:text-5xl font-bold text-yellow-300">
+                                                    ₹{displayPlayer.current_bid} Cr
+                                                </div>
+                                                <div className="mt-4 text-white/80 text-lg">
+                                                    {displayPlayer.name}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {showUnsoldAnimation && displayPlayer?.status === 'unsold' && (
+                                            <div className="absolute inset-0 z-50 bg-gradient-to-br from-red-600 via-rose-600 to-pink-600 rounded-xl flex flex-col items-center justify-center animate-pulse">
+                                                <div className="text-6xl md:text-8xl font-bold text-white mb-4">
+                                                    UNSOLD
+                                                </div>
+                                                <div className="text-2xl md:text-3xl font-semibold text-white/90">
+                                                    {displayPlayer.name}
+                                                </div>
+                                                <div className="mt-2 text-white/70">
+                                                    Base Price ₹{displayPlayer.base_price} Cr
+                                                </div>
+                                            </div>
+                                        )}
+
                                         <div className="flex flex-col md:flex-row gap-6 items-center">
-                                            {currentPlayer.photo_url && (
+                                            {displayPlayer.photo_url && (
                                                 <div className="relative w-48 h-48 rounded-xl overflow-hidden border-4 border-yellow-400 shadow-2xl">
                                                     <Image
-                                                        src={currentPlayer.photo_url}
-                                                        alt={currentPlayer.name}
+                                                        src={displayPlayer.photo_url}
+                                                        alt={displayPlayer.name}
                                                         fill
                                                         className="object-cover"
                                                     />
                                                 </div>
                                             )}
                                             <div className="flex-1 space-y-4 text-center md:text-left">
-                                                <h2 className="text-4xl font-bold">{currentPlayer.name}</h2>
-                                                {currentPlayer.old_team && (
+                                                <h2 className="text-4xl font-bold">{displayPlayer.name}</h2>
+                                                {displayPlayer.old_team && (
                                                     <div className="flex items-center gap-2 justify-center md:justify-start">
                                                         <span className="text-white/70">Previous Team:</span>
                                                         <Badge variant="secondary" className="text-lg px-3 py-1">
-                                                            {currentPlayer.old_team}
+                                                            {displayPlayer.old_team}
                                                         </Badge>
                                                     </div>
                                                 )}
                                                 <div className="flex items-center gap-2 justify-center md:justify-start">
                                                     <span className="text-white/70">Base Price:</span>
                                                     <Badge className="bg-blue-500 text-white text-lg px-3 py-1">
-                                                        ₹{currentPlayer.base_price} Cr
+                                                        ₹{displayPlayer.base_price} Cr
                                                     </Badge>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl p-6 text-center">
-                                            <div className="text-sm font-medium text-black/70 mb-2">CURRENT BID</div>
-                                            <div className="text-5xl font-bold text-black mb-3">
-                                                ₹{currentPlayer.current_bid} Cr
-                                            </div>
-                                            {currentPlayer.leading_team && (
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <span className="text-black/70">Leading Team:</span>
-                                                    <Badge className="bg-black text-white text-xl px-4 py-2">
-                                                        {currentPlayer.leading_team}
-                                                    </Badge>
-                                                </div>
+                                            {displayPlayer.current_bid > 0 ? (
+                                                <>
+                                                    <div className="text-sm font-medium text-black/70 mb-2">CURRENT BID</div>
+                                                    <div className="text-5xl font-bold text-black mb-3">
+                                                        ₹{displayPlayer.current_bid} Cr
+                                                    </div>
+                                                    {displayPlayer.leading_team && (
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <span className="text-black/70">Leading Team:</span>
+                                                            <Badge className="bg-black text-white text-xl px-4 py-2">
+                                                                {displayPlayer.leading_team}
+                                                            </Badge>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="text-sm font-medium text-black/70 mb-2">WAITING FOR BIDS</div>
+                                                    <div className="text-3xl font-bold text-black mb-3">
+                                                        No bids yet
+                                                    </div>
+                                                    <div className="text-sm text-black/60">
+                                                        Starting at ₹{displayPlayer.base_price} Cr
+                                                    </div>
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -164,14 +309,14 @@ export default function LivePage() {
                         </Card>
 
                         {/* Bidding History - Collapsible for Current Player */}
-                        {currentPlayer && (
+                        {displayPlayer && (
                             <Card className="mt-6 bg-white/10 backdrop-blur-lg border-white/20 text-white">
                                 <CardHeader>
                                     <button
                                         onClick={() => setShowCurrentPlayerHistory(!showCurrentPlayerHistory)}
                                         className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
                                     >
-                                        <CardTitle className="text-2xl">Bidding History - {currentPlayer.name}</CardTitle>
+                                        <CardTitle className="text-2xl">Bidding History - {displayPlayer.name}</CardTitle>
                                         <svg
                                             className={`w-6 h-6 transition-transform duration-300 ${showCurrentPlayerHistory ? 'rotate-180' : ''}`}
                                             fill="none"
@@ -188,9 +333,9 @@ export default function LivePage() {
                                 >
                                     <CardContent>
                                         <div className="space-y-2 max-h-96 overflow-y-auto">
-                                            {biddingHistory.filter(bid => bid.player_id === currentPlayer.id).length > 0 ? (
+                                            {biddingHistory.filter(bid => bid.player_id === displayPlayer.id).length > 0 ? (
                                                 biddingHistory
-                                                    .filter(bid => bid.player_id === currentPlayer.id)
+                                                    .filter(bid => bid.player_id === displayPlayer.id)
                                                     .map((bid) => (
                                                         <div
                                                             key={bid.id}
@@ -247,7 +392,7 @@ export default function LivePage() {
                                                 </Badge>
                                             </div>
                                             <div className="text-xs text-white/60">
-                                                {team.players_retained} players
+                                                {team.players_retained + team.players_purchased} players
                                             </div>
                                         </button>
                                     ))}
@@ -342,6 +487,37 @@ export default function LivePage() {
                                     ) : (
                                         <p className="text-center text-white/60 py-4 text-sm">
                                             No players sold yet
+                                        </p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Unsold Players */}
+                        <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
+                            <CardHeader>
+                                <CardTitle className="text-xl">Unsold Players</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-3 max-h-96 overflow-y-auto">
+                                    {unsoldPlayers.length > 0 ? (
+                                        unsoldPlayers.map((player) => (
+                                            <div
+                                                key={player.id}
+                                                className="bg-white/5 rounded-lg p-3 space-y-1 border border-red-500/30"
+                                            >
+                                                <div className="font-semibold text-sm">{player.name}</div>
+                                                <div className="flex justify-between items-center text-xs">
+                                                    <Badge className="bg-red-500 text-white">
+                                                        UNSOLD
+                                                    </Badge>
+                                                    <span className="text-white/60">Base: ₹{player.base_price} Cr</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-white/60 py-4 text-sm">
+                                            No unsold players
                                         </p>
                                     )}
                                 </div>

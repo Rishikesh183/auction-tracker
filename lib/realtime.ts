@@ -19,8 +19,7 @@ export function useCurrentPlayer() {
             const { data, error } = await supabase
                 .from('current_player')
                 .select('*')
-                .eq('status', 'live')
-                .order('created_at', { ascending: false })
+                .order('updated_at', { ascending: false }) // 👈 latest change
                 .limit(1)
                 .single();
 
@@ -32,7 +31,7 @@ export function useCurrentPlayer() {
 
         fetchCurrentPlayer();
 
-        // Subscribe to realtime updates
+        // Subscribe to realtime updates - ALLOW ALL STATUS CHANGES
         channel = supabase
             .channel('current_player_changes')
             .on(
@@ -45,11 +44,8 @@ export function useCurrentPlayer() {
                 (payload) => {
                     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                         const newPlayer = payload.new as CurrentPlayer;
-                        if (newPlayer.status === 'live') {
-                            setCurrentPlayer(newPlayer);
-                        }
-                    } else if (payload.eventType === 'DELETE') {
-                        setCurrentPlayer(null);
+                        // Update for ALL status changes to allow Live page to react
+                        setCurrentPlayer(newPlayer);
                     }
                 }
             )

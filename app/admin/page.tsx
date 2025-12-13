@@ -199,6 +199,49 @@ export default function AdminPage() {
         }
     };
 
+    const handleMarkUnsold = async () => {
+        if (!currentPlayer) {
+            alert('No active player');
+            return;
+        }
+
+        if (!confirm(`Mark ${currentPlayer.name} as UNSOLD?`)) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await fetch('/api/player/unsold', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    player_id: currentPlayer.id,
+                }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                // Reset form
+                setPlayerName('');
+                setBasePrice('');
+                setOldTeam('');
+                setPhotoFile(null);
+                setPhotoPreview('');
+                setPhotoUrl('');
+                setBidTeam('');
+                setBidAmount('');
+                alert('Player marked as unsold');
+            } else {
+                alert('Failed to mark as unsold: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error marking as unsold:', error);
+            alert('Failed to mark as unsold');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-8">
             <div className="max-w-7xl mx-auto">
@@ -421,6 +464,14 @@ export default function AdminPage() {
                                             className="w-full bg-orange-600 hover:bg-orange-700"
                                         >
                                             Place Bid
+                                        </Button>
+
+                                        <Button
+                                            onClick={handleMarkUnsold}
+                                            disabled={loading}
+                                            className="w-full bg-gray-600 hover:bg-gray-700"
+                                        >
+                                            Mark as UNSOLD
                                         </Button>
 
                                         <Button

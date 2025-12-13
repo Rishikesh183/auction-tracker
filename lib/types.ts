@@ -8,7 +8,7 @@ export interface CurrentPlayer {
   old_team: string | null;
   current_bid: number;
   leading_team: string | null;
-  status: 'live' | 'completed';
+  status: 'live' | 'completed' | 'unsold';
   created_at: string;
   updated_at: string;
 }
@@ -38,7 +38,7 @@ export interface UpdatePlayerRequest {
   photo_url?: string;
   base_price: number;
   old_team?: string;
-  status?: 'live' | 'completed';
+  status?: 'live' | 'completed' | 'unsold';
 }
 
 export interface BidRequest {
