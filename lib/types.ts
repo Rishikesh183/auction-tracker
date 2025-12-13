@@ -29,6 +29,7 @@ export interface Team {
   players_purchased: number;
   created_at: string;
   updated_at: string;
+  players_retained: number;
 }
 
 // Request/Response types for API routes

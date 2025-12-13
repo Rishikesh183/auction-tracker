@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { toast, Toaster } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 export default function LivePage() {
     const { currentPlayer, loading: playerLoading } = useCurrentPlayer();
@@ -16,6 +17,7 @@ export default function LivePage() {
     const [showCurrentPlayerHistory, setShowCurrentPlayerHistory] = useState(false);
     const [expandedSoldPlayer, setExpandedSoldPlayer] = useState<string | null>(null);
     const [soldPlayerBids, setSoldPlayerBids] = useState<{ [key: string]: any[] }>({});
+    const router = useRouter();
 
     // Fetch completed players
     useEffect(() => {
@@ -181,9 +183,8 @@ export default function LivePage() {
                                     </button>
                                 </CardHeader>
                                 <div
-                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                                        showCurrentPlayerHistory ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-                                    }`}
+                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${showCurrentPlayerHistory ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                                        }`}
                                 >
                                     <CardContent>
                                         <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -226,9 +227,10 @@ export default function LivePage() {
                             <CardContent>
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
                                     {teams.map((team) => (
-                                        <div
+                                        <button
                                             key={team.id}
-                                            className="bg-white/5 rounded-lg p-3 space-y-1"
+                                            onClick={() => router.push(`/team/${encodeURIComponent(team.name)}`)}
+                                            className="bg-white/5 rounded-lg p-3 space-y-1 hover:bg-white/10 transition-colors cursor-pointer text-left w-full"
                                         >
                                             <div className="flex justify-between items-center">
                                                 <span className="font-semibold text-sm">{team.name}</span>
@@ -245,9 +247,9 @@ export default function LivePage() {
                                                 </Badge>
                                             </div>
                                             <div className="text-xs text-white/60">
-                                                {team.players_purchased} players
+                                                {team.players_retained} players
                                             </div>
-                                        </div>
+                                        </button>
                                     ))}
                                 </div>
                             </CardContent>
@@ -309,9 +311,8 @@ export default function LivePage() {
                                                     </div>
                                                 </button>
                                                 <div
-                                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                                                        expandedSoldPlayer === player.id ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
-                                                    }`}
+                                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${expandedSoldPlayer === player.id ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
+                                                        }`}
                                                 >
                                                     <div className="px-3 pb-3 space-y-2 border-t border-white/10 pt-2">
                                                         {soldPlayerBids[player.id] && soldPlayerBids[player.id].length > 0 ? (

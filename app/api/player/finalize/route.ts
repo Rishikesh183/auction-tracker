@@ -51,6 +51,23 @@ export async function POST(request: NextRequest) {
 
         if (updateTeamError) throw updateTeamError;
 
+        // Record auction purchase for team dashboard
+        const { error: purchaseError } = await supabaseServer
+            .from('auction_purchases')
+            .insert({
+                team_name: team,
+                player_name: playerData.name,
+                auction_price: final_amount,
+                is_overseas: false, // Default to false, should be updated based on player data
+                role: 'Batsman', // Default role, should be updated based on player data
+                player_id: player_id,
+            });
+
+        if (purchaseError) {
+            console.error('Error recording auction purchase:', purchaseError);
+            // Don't throw error, just log it - the main transaction succeeded
+        }
+
         return NextResponse.json({
             success: true,
             data: {
