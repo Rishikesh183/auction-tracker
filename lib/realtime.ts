@@ -166,3 +166,128 @@ export function useTeams() {
 
     return { teams, loading };
 }
+
+/**
+ * Custom hook to fetch all players (sold and unsold) with real-time updates
+ */
+export function useAllPlayers() {
+    const [soldPlayers, setSoldPlayers] = useState<CurrentPlayer[]>([]);
+    const [unsoldPlayers, setUnsoldPlayers] = useState<CurrentPlayer[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let channel: RealtimeChannel;
+
+        const fetchPlayers = async () => {
+            // Fetch sold players
+            const { data: sold, error: soldError } = await supabase
+                .from('current_player')
+                .select('*')
+                .eq('status', 'completed')
+                .order('updated_at', { ascending: false });
+
+            if (!soldError && sold) {
+                setSoldPlayers(sold);
+            }
+
+            // Fetch unsold players
+            const { data: unsold, error: unsoldError } = await supabase
+                .from('current_player')
+                .select('*')
+                .eq('status', 'unsold')
+                .order('updated_at', { ascending: false });
+
+            if (!unsoldError && unsold) {
+                setUnsoldPlayers(unsold);
+            }
+
+            setLoading(false);
+        };
+
+        fetchPlayers();
+
+        // Subscribe to realtime updates
+        channel = supabase
+            .channel('all_players_changes')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'current_player',
+                },
+                (payload) => {
+                    const player = payload.new as CurrentPlayer;
+
+                    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                        if (player.status === 'completed') {
+                            setSoldPlayers((prev) => {
+                                const filtered = prev.filter(p => p.id !== player.id);
+                                return [player, ...filtered];
+                            });
+                            setUnsoldPlayers((prev) => prev.filter(p => p.id !== player.id));
+                        } else if (player.status === 'unsold') {
+                            setUnsoldPlayers((prev) => {
+                                const filtered = prev.filter(p => p.id !== player.id);
+                                return [player, ...filtered];
+                            });
+                            setSoldPlayers((prev) => prev.filter(p => p.id !== player.id));
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            channel.unsubscribe();
+        };
+    }, []);
+
+    return { soldPlayers, unsoldPlayers, loading };
+}
+
+/**
+ * Custom hook to calculate global auction statistics
+ */
+export function useGlobalStats() {
+    const { teams, loading: teamsLoading } = useTeams();
+    const { soldPlayers, unsoldPlayers, loading: playersLoading } = useAllPlayers();
+    const [stats, setStats] = useState({
+        totalSold: 0,
+        totalUnsold: 0,
+        totalMoneySpent: 0,
+        totalRemainingPurse: 0,
+        mostExpensivePlayer: null as CurrentPlayer | null,
+        teamWithHighestPurse: null as Team | null,
+    });
+
+    useEffect(() => {
+        if (!teamsLoading && !playersLoading) {
+            const totalMoneySpent = soldPlayers.reduce((sum, player) => sum + player.current_bid, 0);
+            const totalRemainingPurse = teams.reduce((sum, team) => sum + team.purse_remaining, 0);
+
+            const mostExpensive = soldPlayers.length > 0
+                ? soldPlayers.reduce((max, player) =>
+                    player.current_bid > (max?.current_bid || 0) ? player : max
+                )
+                : null;
+
+            const teamWithHighest = teams.length > 0
+                ? teams.reduce((max, team) =>
+                    team.purse_remaining > (max?.purse_remaining || 0) ? team : max
+                )
+                : null;
+
+            setStats({
+                totalSold: soldPlayers.length,
+                totalUnsold: unsoldPlayers.length,
+                totalMoneySpent,
+                totalRemainingPurse,
+                mostExpensivePlayer: mostExpensive,
+                teamWithHighestPurse: teamWithHighest,
+            });
+        }
+    }, [teams, soldPlayers, unsoldPlayers, teamsLoading, playersLoading]);
+
+    return { stats, loading: teamsLoading || playersLoading };
+}

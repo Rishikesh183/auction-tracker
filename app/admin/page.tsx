@@ -15,7 +15,19 @@ import {
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 
+// Dummy credentials for admin authentication
+const ADMIN_CREDENTIALS = [
+    { username: 'admin', password: 'admin123' },
+    { username: 'auctioneer', password: 'ipl2024' }
+];
+
 export default function AdminPage() {
+    // Authentication state
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [loginUsername, setLoginUsername] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [loginError, setLoginError] = useState('');
+
     const { currentPlayer } = useCurrentPlayer();
     const { teams } = useTeams();
 
@@ -30,6 +42,39 @@ export default function AdminPage() {
     const [bidAmount, setBidAmount] = useState('');
 
     const [loading, setLoading] = useState(false);
+
+    // Check if user is already authenticated (from localStorage)
+    useEffect(() => {
+        const authStatus = localStorage.getItem('admin_authenticated');
+        if (authStatus === 'true') {
+            setIsAuthenticated(true);
+        }
+    }, []);
+
+    // Handle login
+    const handleLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoginError('');
+
+        const validCredential = ADMIN_CREDENTIALS.find(
+            cred => cred.username === loginUsername && cred.password === loginPassword
+        );
+
+        if (validCredential) {
+            setIsAuthenticated(true);
+            localStorage.setItem('admin_authenticated', 'true');
+            setLoginUsername('');
+            setLoginPassword('');
+        } else {
+            setLoginError('Invalid username or password');
+        }
+    };
+
+    // Handle logout
+    const handleLogout = () => {
+        setIsAuthenticated(false);
+        localStorage.removeItem('admin_authenticated');
+    };
 
     // Update form when current player changes
     useEffect(() => {
@@ -242,12 +287,71 @@ export default function AdminPage() {
         }
     };
 
+    // Show login screen if not authenticated
+    if (!isAuthenticated) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+                <Card className="w-full max-w-md bg-white/10 backdrop-blur-lg border-white/20 text-white">
+                    <CardHeader>
+                        <CardTitle className="text-3xl text-center">Admin Login</CardTitle>
+                        <p className="text-center text-white/70 text-sm mt-2">
+                            IPL Auction Tracker
+                        </p>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Username</label>
+                                <Input
+                                    type="text"
+                                    value={loginUsername}
+                                    onChange={(e) => setLoginUsername(e.target.value)}
+                                    placeholder="Enter username"
+                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Password</label>
+                                <Input
+                                    type="password"
+                                    value={loginPassword}
+                                    onChange={(e) => setLoginPassword(e.target.value)}
+                                    placeholder="Enter password"
+                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
+                                    required
+                                />
+                            </div>
+                            {loginError && (
+                                <p className="text-red-400 text-sm text-center">{loginError}</p>
+                            )}
+                            <Button
+                                type="submit"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                            >
+                                Login
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-8">
             <div className="max-w-7xl mx-auto">
-                <h1 className="text-4xl font-bold text-white mb-8 text-center">
-                    IPL Auction Admin Dashboard
-                </h1>
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-4xl font-bold text-white text-center flex-1">
+                        IPL Auction Admin Dashboard
+                    </h1>
+                    <Button
+                        onClick={handleLogout}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                        Logout
+                    </Button>
+                </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Player Setup */}
