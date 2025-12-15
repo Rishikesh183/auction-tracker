@@ -582,7 +582,7 @@ export default function AdminPage() {
 
                                         <Button
                                             onClick={handleMarkUnsold}
-                                            disabled={loading || (currentPlayer && currentPlayer.current_bid > 0)}
+                                            disabled={loading || !!currentPlayer?.leading_team}
                                             className="w-full bg-gray-600 hover:bg-gray-700"
                                         >
                                             Mark as UNSOLD
