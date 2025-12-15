@@ -28,7 +28,8 @@ export default function AdminPage() {
     const [loginPassword, setLoginPassword] = useState('');
     const [loginError, setLoginError] = useState('');
 
-    const { currentPlayer } = useCurrentPlayer();
+    const { currentPlayer: rawCurrentPlayer } = useCurrentPlayer();
+    const currentPlayer = rawCurrentPlayer?.status === 'live' ? rawCurrentPlayer : null;
     const { teams } = useTeams();
 
     const [playerName, setPlayerName] = useState('');
@@ -84,6 +85,15 @@ export default function AdminPage() {
             setOldTeam(currentPlayer.old_team || '');
             setPhotoUrl(currentPlayer.photo_url || '');
             setPhotoPreview(currentPlayer.photo_url || '');
+        } else {
+            setPlayerName('');
+            setBasePrice('');
+            setOldTeam('');
+            setPhotoUrl('');
+            setPhotoPreview('');
+            setPhotoFile(null);
+            setBidTeam('');
+            setBidAmount('');
         }
     }, [currentPlayer]);
 
@@ -572,7 +582,7 @@ export default function AdminPage() {
 
                                         <Button
                                             onClick={handleMarkUnsold}
-                                            disabled={loading}
+                                            disabled={loading || (currentPlayer && currentPlayer.current_bid > 0)}
                                             className="w-full bg-gray-600 hover:bg-gray-700"
                                         >
                                             Mark as UNSOLD

@@ -8,6 +8,8 @@ import Image from 'next/image';
 import { toast, Toaster } from 'sonner';
 import { useRouter } from 'next/navigation';
 
+import { Input } from '@/components/ui/input';
+
 export default function LivePage() {
     const { currentPlayer, loading: playerLoading } = useCurrentPlayer();
     const { biddingHistory, loading: historyLoading } = useBiddingHistory();
@@ -26,6 +28,7 @@ export default function LivePage() {
             ? localStorage.getItem('lastAnimatedPlayerId')
             : null
     );
+    const [searchQuery, setSearchQuery] = useState('');
 
     const router = useRouter();
 
@@ -160,6 +163,7 @@ export default function LivePage() {
             currentPlayer.id !== lastAnimatedPlayerId
         ) {
             setLastAnimatedPlayerId(currentPlayer.id);
+            localStorage.setItem('lastAnimatedPlayerId', currentPlayer.id); // ✅ ADD THIS
 
             toast.error(`❌ UNSOLD`, {
                 description: `${currentPlayer.name} went unsold`,
@@ -175,6 +179,8 @@ export default function LivePage() {
             }, 3000);
         }
     }, [currentPlayer, lastAnimatedPlayerId]);
+
+
 
     if (playerLoading || historyLoading || teamsLoading) {
         return (
@@ -271,7 +277,7 @@ export default function LivePage() {
                                         </div>
 
                                         <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl p-6 text-center">
-                                            {displayPlayer.current_bid > 0 ? (
+                                            {biddingHistory.some(bid => bid.player_id === displayPlayer.id) ? (
                                                 <>
                                                     <div className="text-sm font-medium text-black/70 mb-2">CURRENT BID</div>
                                                     <div className="text-5xl font-bold text-black mb-3">
@@ -288,9 +294,9 @@ export default function LivePage() {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <div className="text-sm font-medium text-black/70 mb-2">WAITING FOR BIDS</div>
+                                                    <div className="text-sm font-medium text-black/70 mb-2">CURRENT PLAYER :<span className='font-bold text-xl capitalize text-black'>{displayPlayer.name}</span></div>
                                                     <div className="text-3xl font-bold text-black mb-3">
-                                                        No bids yet
+                                                        Waiting for first bid
                                                     </div>
                                                     <div className="text-sm text-black/60">
                                                         Starting at ₹{displayPlayer.base_price} Cr
@@ -367,7 +373,7 @@ export default function LivePage() {
                         {/* Team Purse */}
                         <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
                             <CardHeader>
-                                <CardTitle className="text-xl">Team Purse</CardTitle>
+                                <CardTitle className="text-xl">Team Purse <span className="text-sm text-white/70">click on the team to open its dashboard</span></CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -400,6 +406,18 @@ export default function LivePage() {
                             </CardContent>
                         </Card>
 
+                        {/* Search Players */}
+                        {/* <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white mb-6">
+                            <CardContent className="pt-6">
+                                <Input
+                                    placeholder="Search players..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
+                                />
+                            </CardContent>
+                        </Card> */}
+
                         {/* Completed Players with Collapsible History */}
                         <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
                             <CardHeader>
@@ -407,8 +425,8 @@ export default function LivePage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                                    {completedPlayers.length > 0 ? (
-                                        completedPlayers.map((player) => (
+                                    {completedPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                                        completedPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((player) => (
                                             <div
                                                 key={player.id}
                                                 className="bg-white/5 rounded-lg border border-white/10 overflow-hidden"
@@ -500,8 +518,8 @@ export default function LivePage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
-                                    {unsoldPlayers.length > 0 ? (
-                                        unsoldPlayers.map((player) => (
+                                    {unsoldPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
+                                        unsoldPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((player) => (
                                             <div
                                                 key={player.id}
                                                 className="bg-white/5 rounded-lg p-3 space-y-1 border border-red-500/30"

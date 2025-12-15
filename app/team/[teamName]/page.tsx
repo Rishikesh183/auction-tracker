@@ -5,8 +5,17 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { supabase } from '@/lib/supabaseClient';
 import type { RetainedPlayer, AuctionPurchase, TeamAnalytics } from '@/lib/teamTypes';
+import { Search, Filter, IndianRupee } from 'lucide-react';
 
 export default function TeamDashboardPage() {
     const params = useParams();
@@ -26,6 +35,12 @@ export default function TeamDashboardPage() {
         auctionPurchasesCount: 0,
     });
     const [loading, setLoading] = useState(true);
+
+    // Filter States
+    const [searchQuery, setSearchQuery] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
+    const [typeFilter, setTypeFilter] = useState('all');
+    const [minAmount, setMinAmount] = useState('');
 
     useEffect(() => {
         fetchTeamData();
@@ -127,7 +142,6 @@ export default function TeamDashboardPage() {
             const purchasedOverseas = purchases?.filter(p => p.is_overseas).length || 0;
             const totalOverseas = retainedOverseas + purchasedOverseas;
 
-            const retainedSpent = retained?.reduce((sum, p) => sum + Number(p.retained_amount), 0) || 0;
             const purseRemaining = teamData?.purse_remaining || 130;
 
             setAnalytics({
@@ -155,6 +169,22 @@ export default function TeamDashboardPage() {
         return 'bg-green-500';
     };
 
+    // Filtering Logic
+    const filterPlayer = (player: any, amount: number) => {
+        const matchesName = player.player_name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesRole = roleFilter === 'all' || player.role === roleFilter;
+        const matchesType = typeFilter === 'all' ||
+            (typeFilter === 'overseas' ? player.is_overseas : !player.is_overseas);
+
+        const minAmountVal = minAmount === '' ? 0 : Number(minAmount);
+        const matchesAmount = amount >= minAmountVal;
+
+        return matchesName && matchesRole && matchesType && matchesAmount;
+    };
+
+    const filteredRetainedPlayers = retainedPlayers.filter(p => filterPlayer(p, Number(p.retained_amount)));
+    const filteredAuctionPurchases = auctionPurchases.filter(p => filterPlayer(p, Number(p.auction_price)));
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
@@ -165,9 +195,9 @@ export default function TeamDashboardPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4 md:p-8">
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-7xl mx-auto space-y-8">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <Button
                             onClick={() => router.back()}
@@ -182,7 +212,7 @@ export default function TeamDashboardPage() {
                 </div>
 
                 {/* Analytics Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Purse Card */}
                     <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
                         <CardHeader className="pb-3">
@@ -270,12 +300,77 @@ export default function TeamDashboardPage() {
                     </Card>
                 </div>
 
+                {/* Filters & Search Section */}
+                <Card className="bg-white/5 backdrop-blur-md border-white/10 text-white">
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col md:flex-row gap-4">
+                            {/* Search Bar */}
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                                <Input
+                                    placeholder="Search players..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus-visible:ring-indigo-500"
+                                />
+                            </div>
+
+                            {/* Filters Group */}
+                            <div className="flex flex-col sm:flex-row gap-4 flex-[2]">
+                                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                                    <SelectTrigger className="bg-white/10 border-white/20 text-white w-full sm:w-[180px]">
+                                        <div className="flex items-center gap-2">
+                                            <Filter className="h-4 w-4 text-white/70" />
+                                            <SelectValue placeholder="Role" />
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-slate-900 border-white/20 text-white">
+                                        <SelectItem value="all">All Roles</SelectItem>
+                                        <SelectItem value="Batsman">Batsman</SelectItem>
+                                        <SelectItem value="Bowler">Bowler</SelectItem>
+                                        <SelectItem value="All-Rounder">All-Rounder</SelectItem>
+                                        <SelectItem value="Wicket Keeper">Wicket Keeper</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                                    <SelectTrigger className="bg-white/10 border-white/20 text-white w-full sm:w-[180px]">
+                                        <SelectValue placeholder="Type" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-slate-900 border-white/20 text-white">
+                                        <SelectItem value="all">All Types</SelectItem>
+                                        <SelectItem value="indian">Indian</SelectItem>
+                                        <SelectItem value="overseas">Overseas</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                <div className="relative w-full sm:w-[180px]">
+                                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                                    <Input
+                                        type="number"
+                                        placeholder="Min Price (Cr)"
+                                        value={minAmount}
+                                        onChange={(e) => setMinAmount(e.target.value)}
+                                        className="pl-9 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus-visible:ring-indigo-500"
+                                        min="0"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 {/* Tables Section */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Retained Players Table */}
-                    <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
+                    <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white h-full">
                         <CardHeader>
-                            <CardTitle className="text-2xl">Retained Players ({retainedPlayers.length})</CardTitle>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-2xl">Retained Players</CardTitle>
+                                <Badge variant="secondary" className="bg-white/20 text-white pointer-events-none">
+                                    {filteredRetainedPlayers.length}
+                                </Badge>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="overflow-x-auto">
@@ -288,24 +383,24 @@ export default function TeamDashboardPage() {
                                             <th className="text-center py-3 px-2 text-sm font-semibold text-white/80">Role</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        {retainedPlayers.length > 0 ? (
-                                            retainedPlayers.map((player) => (
-                                                <tr key={player.id} className="border-b border-white/10 hover:bg-white/5 transition-colors">
-                                                    <td className="py-3 px-2 text-sm font-medium">{player.player_name}</td>
+                                    <tbody className="divide-y divide-white/10">
+                                        {filteredRetainedPlayers.length > 0 ? (
+                                            filteredRetainedPlayers.map((player) => (
+                                                <tr key={player.id} className="hover:bg-white/5 transition-colors">
+                                                    <td className="py-3 px-2 text-sm font-medium text-white/90">{player.player_name}</td>
                                                     <td className="py-3 px-2 text-right text-sm">₹{player.retained_amount} Cr</td>
                                                     <td className="py-3 px-2 text-center">
-                                                        <Badge className={player.is_overseas ? 'bg-blue-500 text-white' : 'bg-green-500 text-black'}>
-                                                            {player.is_overseas ? 'Overseas' : 'Indian'}
+                                                        <Badge className={player.is_overseas ? 'bg-blue-500/80 text-white border-none' : 'bg-green-500/80 text-white border-none'}>
+                                                            {player.is_overseas ? 'OS' : 'IND'}
                                                         </Badge>
                                                     </td>
-                                                    <td className="py-3 px-2 text-center text-sm">{player.role}</td>
+                                                    <td className="py-3 px-2 text-center text-sm text-white/70">{player.role}</td>
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={4} className="py-8 text-center text-white/60">
-                                                    No retained players
+                                                <td colSpan={4} className="py-8 text-center text-white/60 italic">
+                                                    {retainedPlayers.length === 0 ? 'No retained players found' : 'No players match filters'}
                                                 </td>
                                             </tr>
                                         )}
@@ -316,9 +411,14 @@ export default function TeamDashboardPage() {
                     </Card>
 
                     {/* Auction Purchases Table */}
-                    <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
+                    <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white h-full">
                         <CardHeader>
-                            <CardTitle className="text-2xl">Auction Purchases ({auctionPurchases.length})</CardTitle>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-2xl">Auction Purchases</CardTitle>
+                                <Badge variant="secondary" className="bg-white/20 text-white pointer-events-none">
+                                    {filteredAuctionPurchases.length}
+                                </Badge>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="overflow-x-auto">
@@ -328,27 +428,27 @@ export default function TeamDashboardPage() {
                                             <th className="text-left py-3 px-2 text-sm font-semibold text-white/80">Player Name</th>
                                             <th className="text-right py-3 px-2 text-sm font-semibold text-white/80">Price</th>
                                             <th className="text-center py-3 px-2 text-sm font-semibold text-white/80">Type</th>
-                                            <th className="text-center py-3 px-2 text-sm font-semibold text-white/80">Role</th>
+                                            {/* <th className="text-center py-3 px-2 text-sm font-semibold text-white/80">Role</th> */}
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        {auctionPurchases.length > 0 ? (
-                                            auctionPurchases.map((player) => (
-                                                <tr key={player.id} className="border-b border-white/10 hover:bg-white/5 transition-colors">
-                                                    <td className="py-3 px-2 text-sm font-medium">{player.player_name}</td>
+                                    <tbody className="divide-y divide-white/10">
+                                        {filteredAuctionPurchases.length > 0 ? (
+                                            filteredAuctionPurchases.map((player) => (
+                                                <tr key={player.id} className="hover:bg-white/5 transition-colors">
+                                                    <td className="py-3 px-2 text-sm font-medium text-white/90">{player.player_name}</td>
                                                     <td className="py-3 px-2 text-right text-sm">₹{player.auction_price} Cr</td>
                                                     <td className="py-3 px-2 text-center">
-                                                        <Badge className={player.is_overseas ? 'bg-blue-500 text-white' : 'bg-green-500 text-black'}>
-                                                            {player.is_overseas ? 'Overseas' : 'Indian'}
+                                                        <Badge className={player.is_overseas ? 'bg-blue-500/80 text-white border-none' : 'bg-green-500/80 text-white border-none'}>
+                                                            {player.is_overseas ? 'OS' : 'IND'}
                                                         </Badge>
                                                     </td>
-                                                    <td className="py-3 px-2 text-center text-sm">{player.role}</td>
+                                                    {/* <td className="py-3 px-2 text-center text-sm text-white/70">{player.role}</td> */}
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={4} className="py-8 text-center text-white/60">
-                                                    No auction purchases yet
+                                                <td colSpan={4} className="py-8 text-center text-white/60 italic">
+                                                    {auctionPurchases.length === 0 ? 'No auction purchases yet' : 'No players match filters'}
                                                 </td>
                                             </tr>
                                         )}
