@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
                 team_name: team,
                 player_name: playerData.name,
                 auction_price: final_amount,
-                is_overseas: false, // Default to false, should be updated based on player data
-                role: 'Batsman', // Default role, should be updated based on player data
+                is_overseas: playerData.is_overseas || false,
+                role: playerData.role || 'Batsman',
                 player_id: player_id,
             });
 

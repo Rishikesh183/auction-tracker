@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTeams, useGlobalStats, useAllPlayers, useBiddingHistory } from '@/lib/realtime';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,7 @@ export default function Home() {
   const [teamOverseasCounts, setTeamOverseasCounts] = useState<{ [key: string]: number }>({});
 
   // Fetch overseas counts for teams
-  useState(() => {
+  useEffect(() => {
     const fetchOverseasCounts = async () => {
       const counts: { [key: string]: number } = {};
 
@@ -49,7 +49,7 @@ export default function Home() {
     if (teams.length > 0) {
       fetchOverseasCounts();
     }
-  });
+  }, [teams]);
 
   if (teamsLoading || statsLoading || playersLoading) {
     return (
@@ -183,8 +183,8 @@ export default function Home() {
                         <span className="font-semibold">{team.players_retained + team.players_purchased}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-white/70">Overseas:</span>
-                        <span className="font-semibold">{teamOverseasCounts[team.name] || 0}</span>
+                        {/* <span className="text-white/70">Overseas:</span>
+                        <span className="font-semibold">{teamOverseasCounts[team.name] || 0}</span> */}
                       </div>
                       <div className="flex justify-between items-center pt-2 border-t border-white/10">
                         <span className="text-white/70">Purse Remaining:</span>

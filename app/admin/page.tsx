@@ -38,6 +38,8 @@ export default function AdminPage() {
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreview, setPhotoPreview] = useState<string>('');
     const [photoUrl, setPhotoUrl] = useState('');
+    const [isOverseas, setIsOverseas] = useState(false);
+    const [role, setRole] = useState('Batsman');
 
     const [bidTeam, setBidTeam] = useState('');
     const [bidAmount, setBidAmount] = useState('');
@@ -85,12 +87,16 @@ export default function AdminPage() {
             setOldTeam(currentPlayer.old_team || '');
             setPhotoUrl(currentPlayer.photo_url || '');
             setPhotoPreview(currentPlayer.photo_url || '');
+            setIsOverseas(currentPlayer.is_overseas || false);
+            setRole(currentPlayer.role || 'Batsman');
         } else {
             setPlayerName('');
             setBasePrice('');
             setOldTeam('');
             setPhotoUrl('');
             setPhotoPreview('');
+            setIsOverseas(false);
+            setRole('Batsman');
             setPhotoFile(null);
             setBidTeam('');
             setBidAmount('');
@@ -157,6 +163,8 @@ export default function AdminPage() {
                     photo_url: photoUrl,
                     base_price: parseFloat(basePrice),
                     old_team: oldTeam || null,
+                    is_overseas: isOverseas,
+                    role: role,
                     status: 'live',
                 }),
             });
@@ -237,6 +245,8 @@ export default function AdminPage() {
                 setPlayerName('');
                 setBasePrice('');
                 setOldTeam('');
+                setIsOverseas(false);
+                setRole('Batsman');
                 setPhotoFile(null);
                 setPhotoPreview('');
                 setPhotoUrl('');
@@ -280,6 +290,8 @@ export default function AdminPage() {
                 setPlayerName('');
                 setBasePrice('');
                 setOldTeam('');
+                setIsOverseas(false);
+                setRole('Batsman');
                 setPhotoFile(null);
                 setPhotoPreview('');
                 setPhotoUrl('');
@@ -402,6 +414,32 @@ export default function AdminPage() {
                                 />
                             </div>
 
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="isOverseas"
+                                    checked={isOverseas}
+                                    onChange={(e) => setIsOverseas(e.target.checked)}
+                                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <label htmlFor="isOverseas" className="text-sm font-medium">Overseas Player</label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Role</label>
+                                <Select value={role} onValueChange={setRole}>
+                                    <SelectTrigger className="bg-white/10 border-white/30 text-white">
+                                        <SelectValue placeholder="Select Role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Batsman">Batsman</SelectItem>
+                                        <SelectItem value="Bowler">Bowler</SelectItem>
+                                        <SelectItem value="All-Rounder">All-Rounder</SelectItem>
+                                        <SelectItem value="Wicket Keeper">Wicket Keeper</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium mb-2">Player Photo</label>
                                 <Input
@@ -465,6 +503,14 @@ export default function AdminPage() {
                                         {currentPlayer.old_team && (
                                             <p className="text-sm">Old Team: {currentPlayer.old_team}</p>
                                         )}
+                                        <div className="flex gap-2">
+                                            {currentPlayer.is_overseas && (
+                                                <Badge className="bg-blue-500 text-white">Overseas</Badge>
+                                            )}
+                                            <Badge variant="outline" className="text-white border-white/50">
+                                                {currentPlayer.role}
+                                            </Badge>
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             <span className="text-sm">Current Bid:</span>
                                             <Badge className="bg-yellow-500 text-black">

@@ -80,7 +80,7 @@ export default function LivePage() {
                 .select('*')
                 .eq('status', 'completed')
                 .order('updated_at', { ascending: false })
-                .limit(20);
+                .order('updated_at', { ascending: false });
 
             if (completed) {
                 setCompletedPlayers(completed);
@@ -92,7 +92,7 @@ export default function LivePage() {
                 .select('*')
                 .eq('status', 'unsold')
                 .order('updated_at', { ascending: false })
-                .limit(20);
+                .order('updated_at', { ascending: false });
 
             if (unsold) {
                 setUnsoldPlayers(unsold);
@@ -119,7 +119,7 @@ export default function LivePage() {
                         if (updatedPlayer.status === 'completed') {
                             setCompletedPlayers((prev) => {
                                 const filtered = prev.filter(p => p.id !== updatedPlayer.id);
-                                return [updatedPlayer, ...filtered].slice(0, 20);
+                                return [updatedPlayer, ...filtered];
                             });
                             // Remove from unsold if it was there
                             setUnsoldPlayers((prev) => prev.filter(p => p.id !== updatedPlayer.id));
@@ -127,7 +127,7 @@ export default function LivePage() {
                         else if (updatedPlayer.status === 'unsold') {
                             setUnsoldPlayers((prev) => {
                                 const filtered = prev.filter(p => p.id !== updatedPlayer.id);
-                                return [updatedPlayer, ...filtered].slice(0, 20);
+                                return [updatedPlayer, ...filtered];
                             });
                             // Remove from completed if it was there
                             setCompletedPlayers((prev) => prev.filter(p => p.id !== updatedPlayer.id));
@@ -399,7 +399,7 @@ export default function LivePage() {
                                                 </Badge>
                                             </div>
                                             <div className="text-xs text-white/60">
-                                                {team.players_retained + team.players_purchased} players
+                                                {team.players_retained + team.players_purchased}/25 players
                                             </div>
                                         </button>
                                     ))}
@@ -483,7 +483,7 @@ export default function LivePage() {
                                                     className={`transition-all duration-300 ease-in-out overflow-hidden ${expandedSoldPlayer === player.id ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
                                                         }`}
                                                 >
-                                                    <div className="px-3 pb-3 space-y-2 border-t border-white/10 pt-2">
+                                                    <div className="px-3 pb-3 space-y-2 border-t border-white/10 pt-2 max-h-[380px] overflow-y-auto">
                                                         {soldPlayerBids[player.id] && soldPlayerBids[player.id].length > 0 ? (
                                                             soldPlayerBids[player.id].map((bid: any) => (
                                                                 <div
