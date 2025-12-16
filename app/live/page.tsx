@@ -198,23 +198,23 @@ export default function LivePage() {
             <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-8">
                     <h1 className="text-4xl md:text-6xl font-bold text-white mb-2 animate-pulse">
-                        IPL AUCTION LIVE
+                        IPL AUCTION TRACKER
                     </h1>
                     <div className="flex items-center justify-center gap-2">
-                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                        <span className="text-white/80 text-lg">LIVE NOW</span>
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-white/80 text-lg">Completed</span>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Current Player - Large Card */}
                     <div className="lg:col-span-2">
-                        <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                            <CardHeader>
-                                <CardTitle className="text-3xl text-center">Current Player</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {displayPlayer ? (
+                        {displayPlayer ? (
+                            <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
+                                <CardHeader>
+                                    <CardTitle className="text-3xl text-center">Current Player</CardTitle>
+                                </CardHeader>
+                                <CardContent>
                                     <div className="space-y-6 relative">
                                         {/* SOLD Animation Overlay */}
                                         {showSoldAnimation && displayPlayer.status === 'completed' && (
@@ -306,14 +306,40 @@ export default function LivePage() {
                                             )}
                                         </div>
                                     </div>
-                                ) : (
-                                    <div className="text-center py-16">
-                                        <p className="text-2xl text-white/60">No active auction</p>
-                                        <p className="text-white/40 mt-2">Waiting for next player...</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="min-h-[400px] flex items-center justify-center bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-8 shadow-2xl">
+                                <div className="text-center max-w-lg w-full">
+                                    <div className="mb-6 inline-flex p-4 rounded-full bg-green-500/20 text-green-400 mb-6">
+                                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
                                     </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                    <h3 className="text-3xl md:text-4xl font-bold text-white mb-4">Auction Completed</h3>
+                                    <p className="text-xl text-white/70 mb-8">
+                                        All players have been auctioned. View the complete results, sold players, and bidding history.
+                                    </p>
+                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                                        <button
+                                            onClick={() => router.push('/completed')}
+                                            className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 flex items-center justify-center gap-2 transform hover:-translate-y-1 cursor-pointer"
+                                        >
+                                            <span className="text-lg">View Results</span>
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            onClick={() => router.push('/')}
+                                            className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white font-bold py-4 px-8 rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm cursor-pointer"
+                                        >
+                                            <span className="text-lg">Dashboard</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Bidding History - Collapsible for Current Player */}
                         {displayPlayer && (

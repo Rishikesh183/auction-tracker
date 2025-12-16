@@ -76,7 +76,7 @@ export default function Home() {
             onClick={() => router.push('/live')}
             className="bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 text-white font-bold text-xl px-8 py-4 rounded-xl shadow-2xl hover:scale-105 transition-transform duration-300 animate-pulse"
           >
-            🔴 GO TO LIVE AUCTION
+            🔴 GO TO AUCTION
           </button>
         </div>
 
@@ -182,10 +182,10 @@ export default function Home() {
                         <span className="text-white/70">Total Players:</span>
                         <span className="font-semibold">{team.players_retained + team.players_purchased}</span>
                       </div>
-                      <div className="flex justify-between">
+                      {/* <div className="flex justify-between">
                         <span className="text-white/70">Overseas:</span>
                         <span className="font-semibold">{teamOverseasCounts[team.name] || 0}</span>
-                      </div>
+                      </div> */}
                       <div className="flex justify-between items-center pt-2 border-t border-white/10">
                         <span className="text-white/70">Purse Remaining:</span>
                         <Badge

@@ -428,7 +428,7 @@ export default function TeamDashboardPage() {
                                             <th className="text-left py-3 px-2 text-sm font-semibold text-white/80">Player Name</th>
                                             <th className="text-right py-3 px-2 text-sm font-semibold text-white/80">Price</th>
                                             <th className="text-center py-3 px-2 text-sm font-semibold text-white/80">Type</th>
-                                            {/* <th className="text-center py-3 px-2 text-sm font-semibold text-white/80">Role</th> */}
+                                            <th className="text-center py-3 px-2 text-sm font-semibold text-white/80">Role</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/10">
@@ -442,7 +442,7 @@ export default function TeamDashboardPage() {
                                                             {player.is_overseas ? 'OS' : 'IND'}
                                                         </Badge>
                                                     </td>
-                                                    {/* <td className="py-3 px-2 text-center text-sm text-white/70">{player.role}</td> */}
+                                                    <td className="py-3 px-2 text-center text-sm text-white/70">{player.role}</td>
                                                 </tr>
                                             ))
                                         ) : (
