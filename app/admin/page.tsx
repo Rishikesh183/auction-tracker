@@ -518,6 +518,24 @@ export default function AdminPage() {
                                                 <button
                                                     onClick={() => {
                                                         const current = parseFloat(bidAmount) || currentPlayer.current_bid;
+                                                        setBidAmount((current + 0.05).toFixed(2));
+                                                    }}
+                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"
+                                                >
+                                                    +5L
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
+                                                        setBidAmount((current + 0.10).toFixed(2));
+                                                    }}
+                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"
+                                                >
+                                                    +10L
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
                                                         setBidAmount((current + 0.2).toFixed(2));
                                                     }}
                                                     className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"

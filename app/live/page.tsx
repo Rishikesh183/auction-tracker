@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useCurrentPlayer, useBiddingHistory, useTeams } from '@/lib/realtime';
+import { useCurrentPlayer, useBiddingHistory, useTeams, useGlobalStats } from '@/lib/realtime';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
@@ -14,6 +14,7 @@ export default function LivePage() {
     const { currentPlayer, loading: playerLoading } = useCurrentPlayer();
     const { biddingHistory, loading: historyLoading } = useBiddingHistory();
     const { teams, loading: teamsLoading } = useTeams();
+    const { stats } = useGlobalStats();
     const [completedPlayers, setCompletedPlayers] = useState<any[]>([]);
     const [prevBidCount, setPrevBidCount] = useState(0);
     const [showCurrentPlayerHistory, setShowCurrentPlayerHistory] = useState(false);
@@ -421,7 +422,12 @@ export default function LivePage() {
                         {/* Completed Players with Collapsible History */}
                         <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
                             <CardHeader>
-                                <CardTitle className="text-xl">Sold Players</CardTitle>
+                                <CardTitle className="text-xl">
+                                    Sold Players
+                                    <Badge variant="secondary" className="ml-2 bg-white/20 text-white border-none">
+                                        {stats.totalSold}
+                                    </Badge>
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
@@ -514,7 +520,12 @@ export default function LivePage() {
                         {/* Unsold Players */}
                         <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
                             <CardHeader>
-                                <CardTitle className="text-xl">Unsold Players</CardTitle>
+                                <CardTitle className="text-xl">
+                                    Unsold Players
+                                    <Badge variant="secondary" className="ml-2 bg-white/20 text-white border-none">
+                                        {stats.totalUnsold}
+                                    </Badge>
+                                </CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3 max-h-96 overflow-y-auto">
