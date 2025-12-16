@@ -11,8 +11,6 @@ export interface CurrentPlayer {
   status: 'live' | 'completed' | 'unsold';
   created_at: string;
   updated_at: string;
-  is_overseas: boolean;
-  role: string;
 }
 
 export interface BiddingHistory {
@@ -41,8 +39,6 @@ export interface UpdatePlayerRequest {
   base_price: number;
   old_team?: string;
   status?: 'live' | 'completed' | 'unsold';
-  is_overseas?: boolean;
-  role?: string;
 }
 
 export interface BidRequest {
