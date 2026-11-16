@@ -6,6 +6,16 @@ import type { CurrentPlayer, BiddingHistory, Team } from './types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 /**
+ * supabase.channel(name) returns the EXISTING channel when the name is already
+ * in use, so two hooks with the same channel name on one page (e.g. useTeams
+ * directly + via useGlobalStats) share one joined channel and the second
+ * listener never receives events. Give every hook instance its own name.
+ */
+export function uniqueChannelName(base: string) {
+    return `${base}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
  * Custom hook to subscribe to current player updates in real-time
  */
 export function useCurrentPlayer() {
@@ -33,7 +43,7 @@ export function useCurrentPlayer() {
 
         // Subscribe to realtime updates - ALLOW ALL STATUS CHANGES
         channel = supabase
-            .channel('current_player_changes')
+            .channel(uniqueChannelName('current_player_changes'))
             .on(
                 'postgres_changes',
                 {
@@ -52,7 +62,7 @@ export function useCurrentPlayer() {
             .subscribe();
 
         return () => {
-            channel.unsubscribe();
+            supabase.removeChannel(channel);
         };
     }, []);
 
@@ -91,7 +101,7 @@ export function useBiddingHistory(playerId?: string) {
 
         // Subscribe to realtime updates
         channel = supabase
-            .channel('bidding_history_changes')
+            .channel(uniqueChannelName('bidding_history_changes'))
             .on(
                 'postgres_changes',
                 {
@@ -109,7 +119,7 @@ export function useBiddingHistory(playerId?: string) {
             .subscribe();
 
         return () => {
-            channel.unsubscribe();
+            supabase.removeChannel(channel);
         };
     }, [playerId]);
 
@@ -142,7 +152,7 @@ export function useTeams() {
 
         // Subscribe to realtime updates
         channel = supabase
-            .channel('teams_changes')
+            .channel(uniqueChannelName('teams_changes'))
             .on(
                 'postgres_changes',
                 {
@@ -160,7 +170,7 @@ export function useTeams() {
             .subscribe();
 
         return () => {
-            channel.unsubscribe();
+            supabase.removeChannel(channel);
         };
     }, []);
 
@@ -208,7 +218,7 @@ export function useAllPlayers() {
 
         // Subscribe to realtime updates
         channel = supabase
-            .channel('all_players_changes')
+            .channel(uniqueChannelName('all_players_changes'))
             .on(
                 'postgres_changes',
                 {
@@ -239,7 +249,7 @@ export function useAllPlayers() {
             .subscribe();
 
         return () => {
-            channel.unsubscribe();
+            supabase.removeChannel(channel);
         };
     }, []);
 

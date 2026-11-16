@@ -5,28 +5,15 @@ import { useCurrentPlayer, useTeams } from '@/lib/realtime';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-
-// Dummy credentials for admin authentication
-const ADMIN_CREDENTIALS = [
-    { username: 'admin', password: 'admin123' },
-    { username: 'auctioneer', password: 'ipl2024' }
-];
+import Link from 'next/link';
+import AdminLogin from '@/components/AdminLogin';
+import { formatCr, purseTone } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 export default function AdminPage() {
-    // Authentication state
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [loginUsername, setLoginUsername] = useState('');
-    const [loginPassword, setLoginPassword] = useState('');
-    const [loginError, setLoginError] = useState('');
+    // Authentication (checked on the server, cookie-based)
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
     const { currentPlayer: rawCurrentPlayer } = useCurrentPlayer();
     const currentPlayer = rawCurrentPlayer?.status === 'live' ? rawCurrentPlayer : null;
@@ -44,37 +31,16 @@ export default function AdminPage() {
 
     const [loading, setLoading] = useState(false);
 
-    // Check if user is already authenticated (from localStorage)
     useEffect(() => {
-        const authStatus = localStorage.getItem('admin_authenticated');
-        if (authStatus === 'true') {
-            setIsAuthenticated(true);
-        }
+        fetch('/api/admin/session')
+            .then((r) => r.json())
+            .then((d) => setIsAuthenticated(Boolean(d.authenticated)))
+            .catch(() => setIsAuthenticated(false));
     }, []);
 
-    // Handle login
-    const handleLogin = (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoginError('');
-
-        const validCredential = ADMIN_CREDENTIALS.find(
-            cred => cred.username === loginUsername && cred.password === loginPassword
-        );
-
-        if (validCredential) {
-            setIsAuthenticated(true);
-            localStorage.setItem('admin_authenticated', 'true');
-            setLoginUsername('');
-            setLoginPassword('');
-        } else {
-            setLoginError('Invalid username or password');
-        }
-    };
-
-    // Handle logout
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await fetch('/api/admin/session', { method: 'DELETE' });
         setIsAuthenticated(false);
-        localStorage.removeItem('admin_authenticated');
     };
 
     // Update form when current player changes
@@ -297,359 +263,247 @@ export default function AdminPage() {
         }
     };
 
-    // Show login screen if not authenticated
+
+    const increments = [
+        { label: '+5L', value: 0.05 },
+        { label: '+10L', value: 0.1 },
+        { label: '+20L', value: 0.2 },
+        { label: '+25L', value: 0.25 },
+        { label: '+50L', value: 0.5 },
+        { label: '+1 Cr', value: 1 },
+        { label: '+2 Cr', value: 2 },
+    ];
+
+    const fieldLabel = 'mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted-foreground';
+
+    if (isAuthenticated === null) {
+        return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Checking login…</div>;
+    }
     if (!isAuthenticated) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-                <Card className="w-full max-w-md bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                    <CardHeader>
-                        <CardTitle className="text-3xl text-center">Admin Login</CardTitle>
-                        <p className="text-center text-white/70 text-sm mt-2">
-                            IPL Auction Tracker
-                        </p>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleLogin} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Username</label>
-                                <Input
-                                    type="text"
-                                    value={loginUsername}
-                                    onChange={(e) => setLoginUsername(e.target.value)}
-                                    placeholder="Enter username"
-                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Password</label>
-                                <Input
-                                    type="password"
-                                    value={loginPassword}
-                                    onChange={(e) => setLoginPassword(e.target.value)}
-                                    placeholder="Enter password"
-                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
-                                    required
-                                />
-                            </div>
-                            {loginError && (
-                                <p className="text-red-400 text-sm text-center">{loginError}</p>
-                            )}
-                            <Button
-                                type="submit"
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                                Login
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-            </div>
-        );
+        return <AdminLogin onDone={() => setIsAuthenticated(true)} />;
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-8">
-            <div className="max-w-7xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-4xl font-bold text-white text-center flex-1">
-                        IPL Auction Admin Dashboard
+        <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8 md:py-10">
+            <div className="flex items-end justify-between gap-4">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        IPL Auction
+                    </p>
+                    <h1 className="font-display text-4xl font-bold uppercase tracking-wide md:text-5xl">
+                        Control room
                     </h1>
-                    <Button
-                        onClick={handleLogout}
-                        className="bg-red-600 hover:bg-red-700 text-white"
-                    >
-                        Logout
+                </div>
+                <div className="flex gap-2">
+                    <Button asChild variant="outline" size="sm">
+                        <Link href="/admin/retention">Retention control</Link>
+                    </Button>
+                    <Button onClick={handleLogout} variant="ghost" size="sm">
+                        Log out
                     </Button>
                 </div>
+            </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Player Setup */}
-                    <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                        <CardHeader>
-                            <CardTitle className="text-2xl">Player Setup</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Player Name</label>
-                                <Input
-                                    value={playerName}
-                                    onChange={(e) => setPlayerName(e.target.value)}
-                                    placeholder="Enter player name"
-                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
-                                />
-                            </div>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {/* Player Setup */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Player setup</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div>
+                            <label className={fieldLabel}>Player name</label>
+                            <Input
+                                value={playerName}
+                                onChange={(e) => setPlayerName(e.target.value)}
+                                placeholder="Enter player name"
+                            />
+                        </div>
 
+                        <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-sm font-medium mb-2">Base Price (₹ Cr)</label>
+                                <label className={fieldLabel}>Base price (₹ Cr)</label>
                                 <Input
                                     type="number"
                                     step="0.1"
                                     value={basePrice}
                                     onChange={(e) => setBasePrice(e.target.value)}
-                                    placeholder="Enter base price"
-                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
+                                    placeholder="e.g. 2"
                                 />
                             </div>
-
                             <div>
-                                <label className="block text-sm font-medium mb-2">Old Team (Optional)</label>
+                                <label className={fieldLabel}>Old team (optional)</label>
                                 <Input
                                     value={oldTeam}
                                     onChange={(e) => setOldTeam(e.target.value)}
-                                    placeholder="Enter old team"
-                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
+                                    placeholder="e.g. RCB"
                                 />
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-2">Player Photo</label>
-                                <Input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handlePhotoChange}
-                                    className="bg-white/10 border-white/30 text-white file:text-white"
-                                />
-                                {photoPreview && (
-                                    <div className="mt-2 relative w-32 h-32 rounded-lg overflow-hidden">
-                                        <Image
-                                            src={photoPreview}
-                                            alt="Preview"
-                                            fill
-                                            className="object-cover"
-                                        />
-                                    </div>
-                                )}
-                                {photoFile && (
-                                    <Button
-                                        onClick={handleUploadPhoto}
-                                        disabled={loading}
-                                        className="mt-2 bg-green-600 hover:bg-green-700"
-                                    >
-                                        Upload Photo
-                                    </Button>
-                                )}
-                            </div>
-
-                            <Button
-                                onClick={handleUpdatePlayer}
-                                disabled={loading}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                                {currentPlayer ? 'Update Player' : 'Start New Player'}
-                            </Button>
-                        </CardContent>
-                    </Card>
-
-                    {/* Current Player & Bidding */}
-                    <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                        <CardHeader>
-                            <CardTitle className="text-2xl">Current Auction</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {currentPlayer ? (
-                                <>
-                                    <div className="bg-white/5 rounded-lg p-4 space-y-2">
-                                        <h3 className="text-xl font-bold">{currentPlayer.name}</h3>
-                                        {currentPlayer.photo_url && (
-                                            <div className="relative w-24 h-24 rounded-lg overflow-hidden">
-                                                <Image
-                                                    src={currentPlayer.photo_url}
-                                                    alt={currentPlayer.name}
-                                                    fill
-                                                    className="object-cover"
-                                                />
-                                            </div>
-                                        )}
-                                        <p className="text-sm">Base Price: ₹{currentPlayer.base_price} Cr</p>
-                                        {currentPlayer.old_team && (
-                                            <p className="text-sm">Old Team: {currentPlayer.old_team}</p>
-                                        )}
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm">Current Bid:</span>
-                                            <Badge className="bg-yellow-500 text-black">
-                                                ₹{currentPlayer.current_bid} Cr
-                                            </Badge>
-                                        </div>
-                                        {currentPlayer.leading_team && (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm">Leading Team:</span>
-                                                <Badge className="bg-green-500 text-black">
-                                                    {currentPlayer.leading_team}
-                                                </Badge>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <h4 className="font-semibold">Place New Bid</h4>
-
-                                        {/* TEAM BUTTON SELECTOR */}
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {teams.map((team) => (
-                                                <button
-                                                    key={team.id}
-                                                    onClick={() => setBidTeam(team.name)}
-                                                    className={`p-3 rounded-lg border text-sm font-medium
-                    ${bidTeam === team.name
-                                                            ? "bg-orange-600 border-orange-400 text-white"
-                                                            : "bg-white/10 border-white/30 text-white hover:bg-white/20"
-                                                        }
-                `}
-                                                >
-                                                    {team.name}
-                                                    <div className="text-xs opacity-80">
-                                                        ₹{team.purse_remaining.toFixed(2)} Cr
-                                                    </div>
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        {/* Quick Bid Buttons */}
-                                        <div>
-                                            <label className="block text-sm font-medium mb-2">Quick Bid Increments</label>
-                                            <div className="grid grid-cols-3 gap-2 mb-3">
-                                                <button
-                                                    onClick={() => setBidAmount(currentPlayer.base_price.toString())}
-                                                    className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors border border-blue-400"
-                                                >
-                                                    Base Price
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
-                                                        setBidAmount((current + 0.05).toFixed(2));
-                                                    }}
-                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"
-                                                >
-                                                    +5L
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
-                                                        setBidAmount((current + 0.10).toFixed(2));
-                                                    }}
-                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"
-                                                >
-                                                    +10L
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
-                                                        setBidAmount((current + 0.2).toFixed(2));
-                                                    }}
-                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"
-                                                >
-                                                    +20L
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
-                                                        setBidAmount((current + 0.25).toFixed(2));
-                                                    }}
-                                                    className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors border border-purple-400"
-                                                >
-                                                    +25L
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
-                                                        setBidAmount((current + 0.5).toFixed(2));
-                                                    }}
-                                                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-sm font-medium transition-colors border border-indigo-400"
-                                                >
-                                                    +50L
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
-                                                        setBidAmount((current + 1).toFixed(2));
-                                                    }}
-                                                    className="px-3 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium transition-colors border border-pink-400"
-                                                >
-                                                    +1 Cr
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        const current = parseFloat(bidAmount) || currentPlayer.current_bid;
-                                                        setBidAmount((current + 2).toFixed(2));
-                                                    }}
-                                                    className="px-3 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium transition-colors border border-pink-400"
-                                                >
-                                                    +2 Cr
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <Input
-                                            type="number"
-                                            step="0.1"
-                                            value={bidAmount}
-                                            onChange={(e) => setBidAmount(e.target.value)}
-                                            placeholder="Enter bid amount"
-                                            className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
-                                        />
-
-                                        <Button
-                                            onClick={handlePlaceBid}
-                                            disabled={loading}
-                                            className="w-full bg-orange-600 hover:bg-orange-700"
-                                        >
-                                            Place Bid
-                                        </Button>
-
-                                        <Button
-                                            onClick={handleMarkUnsold}
-                                            disabled={loading || !!currentPlayer?.leading_team}
-                                            className="w-full bg-gray-600 hover:bg-gray-700"
-                                        >
-                                            Mark as UNSOLD
-                                        </Button>
-
-                                        <Button
-                                            onClick={handleFinalizeSale}
-                                            disabled={loading || !currentPlayer.leading_team}
-                                            className="w-full bg-green-600 hover:bg-green-700"
-                                        >
-                                            Finalize Sale
-                                        </Button>
-                                    </div>
-
-                                </>
-                            ) : (
-                                <p className="text-center text-white/60 py-8">
-                                    No active player. Start a new auction above.
-                                </p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Teams Overview */}
-                <Card className="mt-8 bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                    <CardHeader>
-                        <CardTitle className="text-2xl">Teams Overview</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                            {teams.map((team) => (
-                                <div
-                                    key={team.id}
-                                    className="bg-white/5 rounded-lg p-4 text-center space-y-1"
-                                >
-                                    <h4 className="font-semibold text-sm">{team.name}</h4>
-                                    <p className="text-lg font-bold text-green-400">
-                                        ₹{team.purse_remaining.toFixed(2)} Cr
-                                    </p>
-                                    <p className="text-xs text-white/60">
-                                        {team.players_purchased} players
-                                    </p>
-                                </div>
-                            ))}
                         </div>
+
+                        <div>
+                            <label className={fieldLabel}>Player photo</label>
+                            <div className="flex items-start gap-4">
+                                {photoPreview && (
+                                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-border">
+                                        <Image src={photoPreview} alt="Preview" fill className="object-cover" />
+                                    </div>
+                                )}
+                                <div className="flex-1 space-y-2">
+                                    <Input type="file" accept="image/*" onChange={handlePhotoChange} className="h-auto py-1.5" />
+                                    {photoFile && (
+                                        <Button onClick={handleUploadPhoto} disabled={loading} variant="secondary" size="sm">
+                                            Upload photo
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <Button onClick={handleUpdatePlayer} disabled={loading} className="w-full">
+                            {currentPlayer ? 'Update player' : 'Start new player'}
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                {/* Current Player & Bidding */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Current auction</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                        {currentPlayer ? (
+                            <>
+                                <div className="flex items-center gap-4 rounded-lg border border-border bg-background p-4">
+                                    {currentPlayer.photo_url && (
+                                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg">
+                                            <Image src={currentPlayer.photo_url} alt={currentPlayer.name} fill className="object-cover" />
+                                        </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <h3 className="truncate text-lg font-semibold">{currentPlayer.name}</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Base {formatCr(currentPlayer.base_price)}
+                                            {currentPlayer.old_team && ` · Previously ${currentPlayer.old_team}`}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="font-display text-3xl font-bold tabular-nums text-primary">
+                                            {formatCr(currentPlayer.current_bid)}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {currentPlayer.leading_team ?? 'No bids yet'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className={fieldLabel}>Bidding team</label>
+                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                        {teams.map((team) => (
+                                            <button
+                                                key={team.id}
+                                                onClick={() => setBidTeam(team.name)}
+                                                className={cn(
+                                                    'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                                                    bidTeam === team.name
+                                                        ? 'border-primary bg-primary/10 text-foreground'
+                                                        : 'border-border bg-background hover:border-input hover:bg-muted/50'
+                                                )}
+                                            >
+                                                <div className="truncate font-medium">{team.name}</div>
+                                                <div className="text-xs text-muted-foreground tabular-nums">
+                                                    {formatCr(team.purse_remaining.toFixed(2))}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className={fieldLabel}>Bid amount</label>
+                                    <div className="mb-2 flex flex-wrap gap-2">
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => setBidAmount(currentPlayer.base_price.toString())}
+                                        >
+                                            Base
+                                        </Button>
+                                        {increments.map((inc) => (
+                                            <Button
+                                                key={inc.label}
+                                                variant="secondary"
+                                                size="sm"
+                                                className="tabular-nums"
+                                                onClick={() => {
+                                                    const current = parseFloat(bidAmount) || currentPlayer.current_bid;
+                                                    setBidAmount((current + inc.value).toFixed(2));
+                                                }}
+                                            >
+                                                {inc.label}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                    <Input
+                                        type="number"
+                                        step="0.1"
+                                        value={bidAmount}
+                                        onChange={(e) => setBidAmount(e.target.value)}
+                                        placeholder="Enter bid amount (₹ Cr)"
+                                        className="h-12 font-display text-2xl font-bold tabular-nums"
+                                    />
+                                </div>
+
+                                <Button onClick={handlePlaceBid} disabled={loading} size="lg" className="w-full">
+                                    Place bid{bidTeam && bidAmount ? ` · ${bidTeam} ${formatCr(bidAmount)}` : ''}
+                                </Button>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Button
+                                        onClick={handleMarkUnsold}
+                                        disabled={loading || !!currentPlayer?.leading_team}
+                                        variant="outline"
+                                    >
+                                        Mark unsold
+                                    </Button>
+                                    <Button
+                                        onClick={handleFinalizeSale}
+                                        disabled={loading || !currentPlayer.leading_team}
+                                        variant="success"
+                                    >
+                                        Finalize sale
+                                    </Button>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="py-10 text-center text-sm text-muted-foreground">
+                                No active player. Start a new one on the left.
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Teams Overview */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-lg">Teams</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-5">
+                        {teams.map((team) => (
+                            <div key={team.id} className="bg-card p-4">
+                                <div className="truncate text-sm font-medium">{team.name}</div>
+                                <div className={cn('font-display text-xl font-bold tabular-nums', purseTone(team.purse_remaining))}>
+                                    {formatCr(team.purse_remaining.toFixed(2))}
+                                </div>
+                                <div className="text-xs text-muted-foreground">{team.players_purchased} bought</div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }

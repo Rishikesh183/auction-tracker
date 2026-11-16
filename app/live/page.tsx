@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useCurrentPlayer, useBiddingHistory, useTeams, useGlobalStats } from '@/lib/realtime';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { toast, Toaster } from 'sonner';
-import { useRouter } from 'next/navigation';
-
-import { Input } from '@/components/ui/input';
+import { ChevronDown } from 'lucide-react';
+import { useCurrentPlayer, useBiddingHistory, useTeams, useGlobalStats, uniqueChannelName } from '@/lib/realtime';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { formatCr, formatTime, purseTone } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 export default function LivePage() {
     const { currentPlayer, loading: playerLoading } = useCurrentPlayer();
@@ -16,8 +18,7 @@ export default function LivePage() {
     const { teams, loading: teamsLoading } = useTeams();
     const { stats } = useGlobalStats();
     const [completedPlayers, setCompletedPlayers] = useState<any[]>([]);
-    const [prevBidCount, setPrevBidCount] = useState(0);
-    const [showCurrentPlayerHistory, setShowCurrentPlayerHistory] = useState(false);
+    const [showCurrentPlayerHistory, setShowCurrentPlayerHistory] = useState(true);
     const [expandedSoldPlayer, setExpandedSoldPlayer] = useState<string | null>(null);
     const [soldPlayerBids, setSoldPlayerBids] = useState<{ [key: string]: any[] }>({});
     const [unsoldPlayers, setUnsoldPlayers] = useState<any[]>([]);
@@ -29,22 +30,18 @@ export default function LivePage() {
             ? localStorage.getItem('lastAnimatedPlayerId')
             : null
     );
-    const [searchQuery, setSearchQuery] = useState('');
+    // Id of the newest bid already seen; null until the first history load.
+    const lastSeenBidId = useRef<string | null | undefined>(undefined);
 
-    const router = useRouter();
-
-    // Initialize - mark already completed players as handled
+    // Show the live player
     useEffect(() => {
         if (!currentPlayer) return;
-
-        // Only LIVE players are shown normally
         if (currentPlayer.status === 'live') {
             setDisplayPlayer(currentPlayer);
         }
     }, [currentPlayer]);
 
-
-    // Watch for player status changes (finalize/unsold) - ONLY ONCE per player
+    // SOLD animation - once per player
     useEffect(() => {
         if (
             currentPlayer &&
@@ -53,110 +50,24 @@ export default function LivePage() {
         ) {
             setLastAnimatedPlayerId(currentPlayer.id);
             localStorage.setItem('lastAnimatedPlayerId', currentPlayer.id);
-            toast.success(`🎉 Player SOLD!`, {
-                description: `${currentPlayer.name} sold to ${currentPlayer.leading_team} for ₹${currentPlayer.current_bid} Cr`,
+            toast.success('Sold', {
+                description: `${currentPlayer.name} to ${currentPlayer.leading_team} for ${formatCr(currentPlayer.current_bid)}`,
                 duration: 4000,
             });
 
             setShowSoldAnimation(true);
-            setDisplayPlayer(currentPlayer); // show ONLY for animation
+            setDisplayPlayer(currentPlayer);
 
+            // No cleanup: this effect re-runs when lastAnimatedPlayerId changes,
+            // and clearing the timer there would leave the overlay up forever.
             setTimeout(() => {
                 setShowSoldAnimation(false);
-                setDisplayPlayer(null); // ✅ clear after animation
+                setDisplayPlayer(null);
             }, 3000);
         }
     }, [currentPlayer, lastAnimatedPlayerId]);
 
-
-    // Fetch completed and unsold players
-    useEffect(() => {
-        const fetchPlayers = async () => {
-            const { supabase } = await import('@/lib/supabaseClient');
-
-            // Fetch completed players
-            const { data: completed } = await supabase
-                .from('current_player')
-                .select('*')
-                .eq('status', 'completed')
-                .order('updated_at', { ascending: false })
-                .order('updated_at', { ascending: false });
-
-            if (completed) {
-                setCompletedPlayers(completed);
-            }
-
-            // Fetch unsold players
-            const { data: unsold } = await supabase
-                .from('current_player')
-                .select('*')
-                .eq('status', 'unsold')
-                .order('updated_at', { ascending: false })
-                .order('updated_at', { ascending: false });
-
-            if (unsold) {
-                setUnsoldPlayers(unsold);
-            }
-        };
-
-        fetchPlayers();
-
-        // Subscribe to player status changes
-        const setupSubscription = async () => {
-            const { supabase } = await import('@/lib/supabaseClient');
-            const channel = supabase
-                .channel('player_status_changes')
-                .on(
-                    'postgres_changes',
-                    {
-                        event: 'UPDATE',
-                        schema: 'public',
-                        table: 'current_player',
-                    },
-                    (payload: any) => {
-                        const updatedPlayer = payload.new;
-
-                        if (updatedPlayer.status === 'completed') {
-                            setCompletedPlayers((prev) => {
-                                const filtered = prev.filter(p => p.id !== updatedPlayer.id);
-                                return [updatedPlayer, ...filtered];
-                            });
-                            // Remove from unsold if it was there
-                            setUnsoldPlayers((prev) => prev.filter(p => p.id !== updatedPlayer.id));
-                        }
-                        else if (updatedPlayer.status === 'unsold') {
-                            setUnsoldPlayers((prev) => {
-                                const filtered = prev.filter(p => p.id !== updatedPlayer.id);
-                                return [updatedPlayer, ...filtered];
-                            });
-                            // Remove from completed if it was there
-                            setCompletedPlayers((prev) => prev.filter(p => p.id !== updatedPlayer.id));
-                            setDisplayPlayer(null); // 👈 IMPORTANT
-                        }
-                    }
-                )
-                .subscribe();
-
-            return () => {
-                channel.unsubscribe();
-            };
-        };
-
-        setupSubscription();
-    }, []);
-
-    // Show toast notification for new bids
-    useEffect(() => {
-        if (biddingHistory.length > prevBidCount && prevBidCount > 0) {
-            const latestBid = biddingHistory[0];
-            toast.success(`New Bid!`, {
-                description: `${latestBid.team} bids ₹${latestBid.amount} Cr for ${latestBid.player_name}`,
-                duration: 3000,
-            });
-        }
-        setPrevBidCount(biddingHistory.length);
-    }, [biddingHistory, prevBidCount]);
-
+    // UNSOLD animation - once per player
     useEffect(() => {
         if (
             currentPlayer &&
@@ -164,9 +75,9 @@ export default function LivePage() {
             currentPlayer.id !== lastAnimatedPlayerId
         ) {
             setLastAnimatedPlayerId(currentPlayer.id);
-            localStorage.setItem('lastAnimatedPlayerId', currentPlayer.id); // ✅ ADD THIS
+            localStorage.setItem('lastAnimatedPlayerId', currentPlayer.id);
 
-            toast.error(`❌ UNSOLD`, {
+            toast.error('Unsold', {
                 description: `${currentPlayer.name} went unsold`,
                 duration: 4000,
             });
@@ -181,404 +92,438 @@ export default function LivePage() {
         }
     }, [currentPlayer, lastAnimatedPlayerId]);
 
+    // Fetch completed and unsold players + keep them live
+    useEffect(() => {
+        let cancelled = false;
+        let cleanup: (() => void) | undefined;
 
+        (async () => {
+            const { supabase } = await import('@/lib/supabaseClient');
+            if (cancelled) return;
+
+            const [{ data: completed }, { data: unsold }] = await Promise.all([
+                supabase
+                    .from('current_player')
+                    .select('*')
+                    .eq('status', 'completed')
+                    .order('updated_at', { ascending: false }),
+                supabase
+                    .from('current_player')
+                    .select('*')
+                    .eq('status', 'unsold')
+                    .order('updated_at', { ascending: false }),
+            ]);
+            if (cancelled) return;
+            if (completed) setCompletedPlayers(completed);
+            if (unsold) setUnsoldPlayers(unsold);
+
+            const channel = supabase
+                .channel(uniqueChannelName('player_status_changes'))
+                .on(
+                    'postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'current_player' },
+                    (payload: any) => {
+                        const updatedPlayer = payload.new;
+                        if (updatedPlayer.status === 'completed') {
+                            setCompletedPlayers((prev) => [updatedPlayer, ...prev.filter((p) => p.id !== updatedPlayer.id)]);
+                            setUnsoldPlayers((prev) => prev.filter((p) => p.id !== updatedPlayer.id));
+                        } else if (updatedPlayer.status === 'unsold') {
+                            setUnsoldPlayers((prev) => [updatedPlayer, ...prev.filter((p) => p.id !== updatedPlayer.id)]);
+                            setCompletedPlayers((prev) => prev.filter((p) => p.id !== updatedPlayer.id));
+                        }
+                    }
+                )
+                .subscribe();
+            cleanup = () => {
+                supabase.removeChannel(channel);
+            };
+        })();
+
+        return () => {
+            cancelled = true;
+            cleanup?.();
+        };
+    }, []);
+
+    // Toast for each new bid (compare newest bid id; the list is capped at 50,
+    // so its length stops changing once 50 bids exist)
+    useEffect(() => {
+        if (historyLoading) return;
+        const newest = biddingHistory[0];
+        const newestId = newest?.id ?? null;
+        if (lastSeenBidId.current === undefined) {
+            lastSeenBidId.current = newestId;
+            return;
+        }
+        if (newest && newestId !== lastSeenBidId.current) {
+            toast(`${newest.team} · ${formatCr(newest.amount)}`, {
+                description: `New bid for ${newest.player_name}`,
+                duration: 3000,
+            });
+        }
+        lastSeenBidId.current = newestId;
+    }, [biddingHistory, historyLoading]);
+
+    const toggleSoldPlayer = async (playerId: string) => {
+        if (expandedSoldPlayer === playerId) {
+            setExpandedSoldPlayer(null);
+            return;
+        }
+        setExpandedSoldPlayer(playerId);
+        if (!soldPlayerBids[playerId]) {
+            const { supabase } = await import('@/lib/supabaseClient');
+            const { data } = await supabase
+                .from('bidding_history')
+                .select('*')
+                .eq('player_id', playerId)
+                .order('timestamp', { ascending: false });
+            if (data) {
+                setSoldPlayerBids((prev) => ({ ...prev, [playerId]: data }));
+            }
+        }
+    };
 
     if (playerLoading || historyLoading || teamsLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-                <div className="text-white text-2xl animate-pulse">Loading auction...</div>
+            <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
+                Loading auction…
             </div>
         );
     }
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4 md:p-8">
-            <Toaster position="top-right" richColors />
+    const isLive = currentPlayer?.status === 'live';
+    const playerBids = displayPlayer
+        ? biddingHistory.filter((bid) => bid.player_id === displayPlayer.id)
+        : [];
+    const hasBids = playerBids.length > 0;
 
-            <div className="max-w-7xl mx-auto">
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl md:text-6xl font-bold text-white mb-2 animate-pulse">
-                        IPL AUCTION TRACKER
+    return (
+        <div className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-10">
+            <Toaster position="top-right" theme="dark" />
+
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                        IPL Auction
+                    </p>
+                    <h1 className="font-display text-4xl font-bold uppercase tracking-wide md:text-5xl">
+                        Live
                     </h1>
-                    <div className="flex items-center justify-center gap-2">
-                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-white/80 text-lg">Completed</span>
-                    </div>
+                </div>
+                {isLive ? (
+                    <Badge variant="destructive" className="px-3 py-1 text-sm">
+                        <span className="relative mr-1 flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-70" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-destructive" />
+                        </span>
+                        Bidding open
+                    </Badge>
+                ) : (
+                    <Badge variant="secondary" className="px-3 py-1 text-sm">
+                        Waiting for next player
+                    </Badge>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* Current player */}
+                <div className="space-y-6 lg:col-span-2">
+                    {displayPlayer ? (
+                        <Card className="relative overflow-hidden">
+                            {/* SOLD overlay */}
+                            {showSoldAnimation && displayPlayer.status === 'completed' && (
+                                <div className="absolute inset-0 z-20 flex animate-fade-in flex-col items-center justify-center bg-background/95 text-center">
+                                    <div className="animate-stamp rounded-lg border-4 border-success px-8 py-2 font-display text-7xl font-bold uppercase tracking-wider text-success md:text-8xl -rotate-3">
+                                        Sold
+                                    </div>
+                                    <div className="mt-6 text-xl font-semibold">{displayPlayer.name}</div>
+                                    <div className="mt-1 text-muted-foreground">{displayPlayer.leading_team}</div>
+                                    <div className="mt-3 font-display text-5xl font-bold tabular-nums text-primary">
+                                        {formatCr(displayPlayer.current_bid)}
+                                    </div>
+                                </div>
+                            )}
+                            {/* UNSOLD overlay */}
+                            {showUnsoldAnimation && displayPlayer.status === 'unsold' && (
+                                <div className="absolute inset-0 z-20 flex animate-fade-in flex-col items-center justify-center bg-background/95 text-center">
+                                    <div className="animate-stamp rounded-lg border-4 border-destructive px-8 py-2 font-display text-7xl font-bold uppercase tracking-wider text-destructive md:text-8xl -rotate-3">
+                                        Unsold
+                                    </div>
+                                    <div className="mt-6 text-xl font-semibold">{displayPlayer.name}</div>
+                                    <div className="mt-1 text-muted-foreground">Base {formatCr(displayPlayer.base_price)}</div>
+                                </div>
+                            )}
+
+                            <CardContent className="pt-5 md:pt-6">
+                                <div className="flex flex-col items-center gap-6 md:flex-row md:items-start">
+                                    <div className="relative h-44 w-44 shrink-0 overflow-hidden rounded-xl border border-border bg-muted">
+                                        {displayPlayer.photo_url ? (
+                                            <Image
+                                                src={displayPlayer.photo_url}
+                                                alt={displayPlayer.name}
+                                                fill
+                                                className="object-cover"
+                                            />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center font-display text-6xl font-bold text-muted-foreground">
+                                                {displayPlayer.name?.[0]}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 space-y-3 text-center md:text-left">
+                                        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                            On the block
+                                        </div>
+                                        <h2 className="font-display text-4xl font-bold uppercase leading-none tracking-wide md:text-5xl">
+                                            {displayPlayer.name}
+                                        </h2>
+                                        <div className="flex flex-wrap justify-center gap-2 md:justify-start">
+                                            <Badge variant="outline" className="px-2.5 py-1 text-sm">
+                                                Base {formatCr(displayPlayer.base_price)}
+                                            </Badge>
+                                            {displayPlayer.old_team && (
+                                                <Badge variant="secondary" className="px-2.5 py-1 text-sm">
+                                                    Previously {displayPlayer.old_team}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Current bid */}
+                                <div className="mt-6 rounded-xl border border-primary/30 bg-primary/[0.06] p-5 md:p-6">
+                                    {hasBids ? (
+                                        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
+                                            <div>
+                                                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                                    Current bid
+                                                </div>
+                                                <div
+                                                    key={displayPlayer.current_bid}
+                                                    className="animate-fade-in font-display text-6xl font-bold tabular-nums leading-none text-primary md:text-7xl"
+                                                >
+                                                    {formatCr(displayPlayer.current_bid)}
+                                                </div>
+                                            </div>
+                                            {displayPlayer.leading_team && (
+                                                <div className="sm:text-right">
+                                                    <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                                        Leading
+                                                    </div>
+                                                    <div className="font-display text-3xl font-bold uppercase tracking-wide">
+                                                        {displayPlayer.leading_team}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center sm:text-left">
+                                            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                                Waiting for first bid
+                                            </div>
+                                            <div className="font-display text-4xl font-bold tabular-nums text-foreground md:text-5xl">
+                                                Starts at {formatCr(displayPlayer.base_price)}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card className="flex min-h-[360px] items-center justify-center">
+                            <CardContent className="max-w-md pt-5 text-center md:pt-6">
+                                <h3 className="font-display text-3xl font-bold uppercase tracking-wide">
+                                    No player on the block
+                                </h3>
+                                <p className="mt-2 text-muted-foreground">
+                                    The next player shows up here the moment bidding opens. Results so far are on the results page.
+                                </p>
+                                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                                    <Button asChild>
+                                        <Link href="/completed">View results</Link>
+                                    </Button>
+                                    <Button asChild variant="outline">
+                                        <Link href="/2026">2026 dashboard</Link>
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Bidding history for current player */}
+                    {displayPlayer && (
+                        <Card>
+                            <CardHeader>
+                                <button
+                                    onClick={() => setShowCurrentPlayerHistory(!showCurrentPlayerHistory)}
+                                    className="flex w-full items-center justify-between"
+                                >
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        Bidding history
+                                        <Badge variant="secondary">{playerBids.length}</Badge>
+                                    </CardTitle>
+                                    <ChevronDown
+                                        className={cn(
+                                            'h-5 w-5 text-muted-foreground transition-transform',
+                                            showCurrentPlayerHistory && 'rotate-180'
+                                        )}
+                                    />
+                                </button>
+                            </CardHeader>
+                            {showCurrentPlayerHistory && (
+                                <CardContent>
+                                    {hasBids ? (
+                                        <ol className="scroll-thin max-h-96 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+                                            {playerBids.map((bid, i) => (
+                                                <li
+                                                    key={bid.id}
+                                                    className={cn(
+                                                        'flex items-center justify-between px-4 py-3',
+                                                        i === 0 && 'bg-primary/[0.06]'
+                                                    )}
+                                                >
+                                                    <div>
+                                                        <div className="font-medium">{bid.team}</div>
+                                                        <div className="text-xs text-muted-foreground tabular-nums">
+                                                            {formatTime(bid.timestamp)}
+                                                        </div>
+                                                    </div>
+                                                    <div
+                                                        className={cn(
+                                                            'font-display text-xl font-bold tabular-nums',
+                                                            i === 0 ? 'text-primary' : 'text-foreground'
+                                                        )}
+                                                    >
+                                                        {formatCr(bid.amount)}
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ol>
+                                    ) : (
+                                        <p className="py-8 text-center text-sm text-muted-foreground">
+                                            No bids yet for this player
+                                        </p>
+                                    )}
+                                </CardContent>
+                            )}
+                        </Card>
+                    )}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Current Player - Large Card */}
-                    <div className="lg:col-span-2">
-                        {displayPlayer ? (
-                            <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                                <CardHeader>
-                                    <CardTitle className="text-3xl text-center">Current Player</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-6 relative">
-                                        {/* SOLD Animation Overlay */}
-                                        {showSoldAnimation && displayPlayer.status === 'completed' && (
-                                            <div className="absolute inset-0 z-50 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 rounded-xl flex flex-col items-center justify-center animate-pulse">
-                                                <div className="text-6xl md:text-8xl font-bold text-white mb-4 animate-bounce">
-                                                    SOLD!
-                                                </div>
-                                                <div className="text-3xl md:text-4xl font-bold text-white mb-2">
-                                                    {displayPlayer.leading_team}
-                                                </div>
-                                                <div className="text-4xl md:text-5xl font-bold text-yellow-300">
-                                                    ₹{displayPlayer.current_bid} Cr
-                                                </div>
-                                                <div className="mt-4 text-white/80 text-lg">
-                                                    {displayPlayer.name}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {showUnsoldAnimation && displayPlayer?.status === 'unsold' && (
-                                            <div className="absolute inset-0 z-50 bg-gradient-to-br from-red-600 via-rose-600 to-pink-600 rounded-xl flex flex-col items-center justify-center animate-pulse">
-                                                <div className="text-6xl md:text-8xl font-bold text-white mb-4">
-                                                    UNSOLD
-                                                </div>
-                                                <div className="text-2xl md:text-3xl font-semibold text-white/90">
-                                                    {displayPlayer.name}
-                                                </div>
-                                                <div className="mt-2 text-white/70">
-                                                    Base Price ₹{displayPlayer.base_price} Cr
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        <div className="flex flex-col md:flex-row gap-6 items-center">
-                                            {displayPlayer.photo_url && (
-                                                <div className="relative w-48 h-48 rounded-xl overflow-hidden border-4 border-yellow-400 shadow-2xl">
-                                                    <Image
-                                                        src={displayPlayer.photo_url}
-                                                        alt={displayPlayer.name}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                </div>
-                                            )}
-                                            <div className="flex-1 space-y-4 text-center md:text-left">
-                                                <h2 className="text-4xl font-bold">{displayPlayer.name}</h2>
-                                                {displayPlayer.old_team && (
-                                                    <div className="flex items-center gap-2 justify-center md:justify-start">
-                                                        <span className="text-white/70">Previous Team:</span>
-                                                        <Badge variant="secondary" className="text-lg px-3 py-1">
-                                                            {displayPlayer.old_team}
-                                                        </Badge>
-                                                    </div>
-                                                )}
-                                                <div className="flex items-center gap-2 justify-center md:justify-start">
-                                                    <span className="text-white/70">Base Price:</span>
-                                                    <Badge className="bg-blue-500 text-white text-lg px-3 py-1">
-                                                        ₹{displayPlayer.base_price} Cr
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl p-6 text-center">
-                                            {biddingHistory.some(bid => bid.player_id === displayPlayer.id) ? (
-                                                <>
-                                                    <div className="text-sm font-medium text-black/70 mb-2">CURRENT BID</div>
-                                                    <div className="text-5xl font-bold text-black mb-3">
-                                                        ₹{displayPlayer.current_bid} Cr
-                                                    </div>
-                                                    {displayPlayer.leading_team && (
-                                                        <div className="flex items-center justify-center gap-2">
-                                                            <span className="text-black/70">Leading Team:</span>
-                                                            <Badge className="bg-black text-white text-xl px-4 py-2">
-                                                                {displayPlayer.leading_team}
-                                                            </Badge>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="text-sm font-medium text-black/70 mb-2">CURRENT PLAYER :<span className='font-bold text-xl capitalize text-black'>{displayPlayer.name}</span></div>
-                                                    <div className="text-3xl font-bold text-black mb-3">
-                                                        Waiting for first bid
-                                                    </div>
-                                                    <div className="text-sm text-black/60">
-                                                        Starting at ₹{displayPlayer.base_price} Cr
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <div className="min-h-[400px] flex items-center justify-center bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-8 shadow-2xl">
-                                <div className="text-center max-w-lg w-full">
-                                    <div className="mb-6 inline-flex p-4 rounded-full bg-green-500/20 text-green-400 mb-6">
-                                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </div>
-                                    <h3 className="text-3xl md:text-4xl font-bold text-white mb-4">Auction Completed</h3>
-                                    <p className="text-xl text-white/70 mb-8">
-                                        All players have been auctioned. View the complete results, sold players, and bidding history.
-                                    </p>
-                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                                        <button
-                                            onClick={() => router.push('/completed')}
-                                            className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 flex items-center justify-center gap-2 transform hover:-translate-y-1 cursor-pointer"
-                                        >
-                                            <span className="text-lg">View Results</span>
-                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            onClick={() => router.push('/')}
-                                            className="w-full sm:w-auto bg-white/10 hover:bg-white/20 text-white font-bold py-4 px-8 rounded-xl transition-all flex items-center justify-center gap-2 backdrop-blur-sm cursor-pointer"
-                                        >
-                                            <span className="text-lg">Dashboard</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Bidding History - Collapsible for Current Player */}
-                        {displayPlayer && (
-                            <Card className="mt-6 bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                                <CardHeader>
-                                    <button
-                                        onClick={() => setShowCurrentPlayerHistory(!showCurrentPlayerHistory)}
-                                        className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
+                {/* Sidebar */}
+                <div className="space-y-6">
+                    {/* Team purse */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Team purse</CardTitle>
+                            <p className="text-xs text-muted-foreground">Tap a team to open its squad</p>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="scroll-thin max-h-96 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+                                {teams.map((team) => (
+                                    <Link
+                                        key={team.id}
+                                        href={`/team/${encodeURIComponent(team.name)}`}
+                                        className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
                                     >
-                                        <CardTitle className="text-2xl">Bidding History - {displayPlayer.name}</CardTitle>
-                                        <svg
-                                            className={`w-6 h-6 transition-transform duration-300 ${showCurrentPlayerHistory ? 'rotate-180' : ''}`}
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-                                </CardHeader>
-                                <div
-                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${showCurrentPlayerHistory ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-                                        }`}
-                                >
-                                    <CardContent>
-                                        <div className="space-y-2 max-h-96 overflow-y-auto">
-                                            {biddingHistory.filter(bid => bid.player_id === displayPlayer.id).length > 0 ? (
-                                                biddingHistory
-                                                    .filter(bid => bid.player_id === displayPlayer.id)
-                                                    .map((bid) => (
-                                                        <div
-                                                            key={bid.id}
-                                                            className="bg-white/5 rounded-lg p-4 flex justify-between items-center hover:bg-white/10 transition-colors border border-white/10"
-                                                        >
-                                                            <div>
-                                                                <div className="font-semibold">{bid.team}</div>
-                                                                <div className="text-sm text-white/60">
-                                                                    {new Date(bid.timestamp).toLocaleTimeString()}
-                                                                </div>
-                                                            </div>
-                                                            <Badge className="bg-green-500 text-black text-lg px-3 py-1">
-                                                                ₹{bid.amount} Cr
-                                                            </Badge>
-                                                        </div>
-                                                    ))
-                                            ) : (
-                                                <p className="text-center text-white/60 py-8">No bids yet for this player</p>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </div>
-                            </Card>
-                        )}
-                    </div>
-
-                    {/* Sidebar */}
-                    <div className="space-y-6">
-                        {/* Team Purse */}
-                        <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                            <CardHeader>
-                                <CardTitle className="text-xl">Team Purse <span className="text-sm text-white/70">click on the team to open its dashboard</span></CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3 max-h-96 overflow-y-auto">
-                                    {teams.map((team) => (
-                                        <button
-                                            key={team.id}
-                                            onClick={() => router.push(`/team/${encodeURIComponent(team.name)}`)}
-                                            className="bg-white/5 rounded-lg p-3 space-y-1 hover:bg-white/10 transition-colors cursor-pointer text-left w-full"
-                                        >
-                                            <div className="flex justify-between items-center">
-                                                <span className="font-semibold text-sm">{team.name}</span>
-                                                <Badge
-                                                    className={
-                                                        team.purse_remaining > 50
-                                                            ? 'bg-green-500 text-black'
-                                                            : team.purse_remaining > 20
-                                                                ? 'bg-yellow-500 text-black'
-                                                                : 'bg-red-500 text-white'
-                                                    }
-                                                >
-                                                    ₹{team.purse_remaining.toFixed(1)} Cr
-                                                </Badge>
-                                            </div>
-                                            <div className="text-xs text-white/60">
+                                        <div className="min-w-0">
+                                            <div className="truncate text-sm font-medium">{team.name}</div>
+                                            <div className="text-xs text-muted-foreground tabular-nums">
                                                 {team.players_retained + team.players_purchased}/25 players
                                             </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                                        </div>
+                                        <div className={cn('font-display text-lg font-bold tabular-nums', purseTone(team.purse_remaining))}>
+                                            {formatCr(team.purse_remaining.toFixed(1))}
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                        {/* Search Players */}
-                        {/* <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white mb-6">
-                            <CardContent className="pt-6">
-                                <Input
-                                    placeholder="Search players..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="bg-white/10 border-white/30 text-white placeholder:text-white/50"
-                                />
-                            </CardContent>
-                        </Card> */}
-
-                        {/* Completed Players with Collapsible History */}
-                        <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                            <CardHeader>
-                                <CardTitle className="text-xl">
-                                    Sold Players
-                                    <Badge variant="secondary" className="ml-2 bg-white/20 text-white border-none">
-                                        {stats.totalSold}
-                                    </Badge>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                                    {completedPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
-                                        completedPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((player) => (
-                                            <div
-                                                key={player.id}
-                                                className="bg-white/5 rounded-lg border border-white/10 overflow-hidden"
+                    {/* Sold players */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                Sold
+                                <Badge variant="secondary">{stats.totalSold}</Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="scroll-thin max-h-[600px] divide-y divide-border overflow-y-auto rounded-lg border border-border">
+                                {completedPlayers.length > 0 ? (
+                                    completedPlayers.map((player) => (
+                                        <div key={player.id}>
+                                            <button
+                                                onClick={() => toggleSoldPlayer(player.id)}
+                                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
                                             >
-                                                <button
-                                                    onClick={async () => {
-                                                        if (expandedSoldPlayer === player.id) {
-                                                            setExpandedSoldPlayer(null);
-                                                        } else {
-                                                            setExpandedSoldPlayer(player.id);
-                                                            // Fetch bidding history for this player if not already loaded
-                                                            if (!soldPlayerBids[player.id]) {
-                                                                const { supabase } = await import('@/lib/supabaseClient');
-                                                                const { data } = await supabase
-                                                                    .from('bidding_history')
-                                                                    .select('*')
-                                                                    .eq('player_id', player.id)
-                                                                    .order('timestamp', { ascending: false });
-                                                                if (data) {
-                                                                    setSoldPlayerBids(prev => ({ ...prev, [player.id]: data }));
-                                                                }
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="w-full p-3 hover:bg-white/5 transition-colors text-left"
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex-1">
-                                                            <div className="font-semibold text-sm">{player.name}</div>
-                                                            <div className="flex justify-between items-center text-xs mt-1">
-                                                                <span className="text-white/60">{player.leading_team}</span>
-                                                                <Badge className="bg-yellow-500 text-black">
-                                                                    ₹{player.current_bid} Cr
-                                                                </Badge>
-                                                            </div>
-                                                        </div>
-                                                        <svg
-                                                            className={`w-5 h-5 ml-2 transition-transform duration-300 ${expandedSoldPlayer === player.id ? 'rotate-180' : ''}`}
-                                                            fill="none"
-                                                            stroke="currentColor"
-                                                            viewBox="0 0 24 24"
-                                                        >
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                        </svg>
-                                                    </div>
-                                                </button>
-                                                <div
-                                                    className={`transition-all duration-300 ease-in-out overflow-hidden ${expandedSoldPlayer === player.id ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
-                                                        }`}
-                                                >
-                                                    <div className="px-3 pb-3 space-y-2 border-t border-white/10 pt-2 max-h-[380px] overflow-y-auto">
-                                                        {soldPlayerBids[player.id] && soldPlayerBids[player.id].length > 0 ? (
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate text-sm font-medium">{player.name}</div>
+                                                    <div className="truncate text-xs text-muted-foreground">{player.leading_team}</div>
+                                                </div>
+                                                <div className="text-sm font-semibold tabular-nums text-primary">
+                                                    {formatCr(player.current_bid)}
+                                                </div>
+                                                <ChevronDown
+                                                    className={cn(
+                                                        'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                                                        expandedSoldPlayer === player.id && 'rotate-180'
+                                                    )}
+                                                />
+                                            </button>
+                                            {expandedSoldPlayer === player.id && (
+                                                <div className="scroll-thin max-h-72 space-y-1 overflow-y-auto bg-background/60 px-4 py-2">
+                                                    {soldPlayerBids[player.id] ? (
+                                                        soldPlayerBids[player.id].length > 0 ? (
                                                             soldPlayerBids[player.id].map((bid: any) => (
-                                                                <div
-                                                                    key={bid.id}
-                                                                    className="bg-white/5 rounded p-2 flex justify-between items-center text-xs"
-                                                                >
-                                                                    <div>
-                                                                        <div className="font-medium">{bid.team}</div>
-                                                                        <div className="text-white/50 text-[10px]">
-                                                                            {new Date(bid.timestamp).toLocaleTimeString()}
-                                                                        </div>
-                                                                    </div>
-                                                                    <Badge className="bg-green-500 text-black text-xs px-2 py-0.5">
-                                                                        ₹{bid.amount} Cr
-                                                                    </Badge>
+                                                                <div key={bid.id} className="flex items-center justify-between py-1 text-xs">
+                                                                    <span>{bid.team}</span>
+                                                                    <span className="font-semibold tabular-nums">{formatCr(bid.amount)}</span>
                                                                 </div>
                                                             ))
-                                                        ) : expandedSoldPlayer === player.id ? (
-                                                            <p className="text-center text-white/50 py-2 text-xs">Loading...</p>
-                                                        ) : null}
-                                                    </div>
+                                                        ) : (
+                                                            <p className="py-1 text-xs text-muted-foreground">No bids recorded</p>
+                                                        )
+                                                    ) : (
+                                                        <p className="py-1 text-xs text-muted-foreground">Loading…</p>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-center text-white/60 py-4 text-sm">
-                                            No players sold yet
-                                        </p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
+                                            )}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="py-6 text-center text-sm text-muted-foreground">No players sold yet</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                        {/* Unsold Players */}
-                        <Card className="bg-white/10 backdrop-blur-lg border-white/20 text-white">
-                            <CardHeader>
-                                <CardTitle className="text-xl">
-                                    Unsold Players
-                                    <Badge variant="secondary" className="ml-2 bg-white/20 text-white border-none">
-                                        {stats.totalUnsold}
-                                    </Badge>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-3 max-h-96 overflow-y-auto">
-                                    {unsoldPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).length > 0 ? (
-                                        unsoldPlayers.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((player) => (
-                                            <div
-                                                key={player.id}
-                                                className="bg-white/5 rounded-lg p-3 space-y-1 border border-red-500/30"
-                                            >
-                                                <div className="font-semibold text-sm">{player.name}</div>
-                                                <div className="flex justify-between items-center text-xs">
-                                                    <Badge className="bg-red-500 text-white">
-                                                        UNSOLD
-                                                    </Badge>
-                                                    <span className="text-white/60">Base: ₹{player.base_price} Cr</span>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-center text-white/60 py-4 text-sm">
-                                            No unsold players
-                                        </p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                    {/* Unsold players */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-lg">
+                                Unsold
+                                <Badge variant="secondary">{stats.totalUnsold}</Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="scroll-thin max-h-96 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+                                {unsoldPlayers.length > 0 ? (
+                                    unsoldPlayers.map((player) => (
+                                        <div key={player.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                            <div className="truncate text-sm font-medium">{player.name}</div>
+                                            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                                                Base {formatCr(player.base_price)}
+                                            </span>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="py-6 text-center text-sm text-muted-foreground">No unsold players</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </div>

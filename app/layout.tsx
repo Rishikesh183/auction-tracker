@@ -1,18 +1,25 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Inter({
-  variable: "--font-geist-sans",
+import Footer from "@/components/Footer";
+import SiteHeader from "@/components/SiteHeader";
+
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+});
+
+const barlow = Barlow_Condensed({
+  variable: "--font-barlow",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   title: "Cricmawa IPL Auction Tracker",
   description: "Get real-time updates on the Cricmawa IPL Auction Tracker",
 };
-
-import Footer from "@/components/Footer";
 
 export default function RootLayout({
   children,
@@ -22,11 +29,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} antialiased flex flex-col min-h-screen `}
+        className={`${inter.variable} ${barlow.variable} flex min-h-screen flex-col antialiased`}
       >
-        <main className="flex-1">
-          {children}
-        </main>
+        <SiteHeader />
+        <main className="flex-1">{children}</main>
         <Footer />
       </body>
     </html>

@@ -3,10 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/photo-manifest.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/photo-manifest.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "gen:retention": "node scripts/gen-retention-sql.mjs"
   },
   "dependencies": {
     "next": "14.2.5",

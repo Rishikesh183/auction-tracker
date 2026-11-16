@@ -1,61 +1,124 @@
 @import "tailwindcss";
 
-:root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 9%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 9%;
-  --primary: 0 0% 9%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 45%;
-  --accent: 0 0% 96%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 90%;
-  --input: 0 0% 90%;
-  --ring: 0 0% 9%;
-  --radius: 0.5rem;
-}
+/*
+ * Design tokens. One dark broadcast surface, one accent (gold = money),
+ * plus status colours. Tailwind v4 reads these via @theme, so classes like
+ * bg-card, border-border, text-muted-foreground, bg-primary/90 all work.
+ */
+@theme {
+  --color-background: #0a0b0d;
+  --color-foreground: #ecedee;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-card: #111317;
+  --color-card-foreground: #ecedee;
+  --color-popover: #16191e;
+  --color-popover-foreground: #ecedee;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 93%;
-    --card: 0 0% 4%;
-    --card-foreground: 0 0% 93%;
-    --popover: 0 0% 4%;
-    --popover-foreground: 0 0% 93%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 64%;
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 0 0% 83%;
+  --color-muted: #1a1d22;
+  --color-muted-foreground: #8b919a;
+  --color-secondary: #1a1d22;
+  --color-secondary-foreground: #ecedee;
+  --color-accent: #22262c;
+  --color-accent-foreground: #ecedee;
+
+  --color-border: #23272e;
+  --color-input: #2b3038;
+  --color-ring: #f2b33d;
+
+  --color-primary: #f2b33d;
+  --color-primary-foreground: #1a1305;
+
+  --color-success: #2fbf71;
+  --color-success-foreground: #04150c;
+  --color-warning: #e8a33a;
+  --color-destructive: #e5484d;
+  --color-destructive-foreground: #ffffff;
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --animate-stamp: stamp 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  --animate-fade-in: fade-in 240ms ease-out both;
+
+  @keyframes stamp {
+    0% {
+      opacity: 0;
+      transform: scale(1.12);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-barlow), var(--font-inter), ui-sans-serif, sans-serif;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 35%, transparent);
+  }
+
+  /* Hide number input spinners (bid/price fields) */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer utilities {
+  /* Thin, quiet scrollbars for the scrolling lists */
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-input) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
