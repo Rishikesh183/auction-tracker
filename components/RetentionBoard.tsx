@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
 import { ArrowRight, ArrowUpRight, Search } from 'lucide-react';
 import { useSquads } from '@/lib/useSquads';
-import { summarize, type SquadPlayer } from '@/lib/squads';
+import { displayStatus, summarize, type SquadPlayer } from '@/lib/squads';
 import { TEAMS, RETENTION_LIVE_AT, getTeam } from '@/lib/teams';
 import { Input } from '@/components/ui/input';
 import PlayerAvatar from '@/components/PlayerAvatar';
@@ -37,6 +37,7 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
         initial: initial ?? undefined,
         onPlayerChange: (next, prev) => {
         if (!next || !prev || next.status === prev.status) return;
+        if (next.team_code !== prev.team_code) return; // traded: the "TRADE" toast covers it
         if (next.status === 'pending') return;
         const t = getTeam(next.team_code);
         const verb = next.status === 'retained' ? 'retain' : 'release';
@@ -168,14 +169,15 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
             </div>
 
             {/* Stats */}
-            <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border lg:grid-cols-4">
+            <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border lg:grid-cols-5">
                 {[
-                    { label: 'Retained', value: String(all.retained.length), tone: 'text-success' },
+                    { label: 'Retained', value: String(all.retainedOnly.length), tone: 'text-success' },
                     { label: 'Released', value: String(all.released.length), tone: 'text-destructive' },
+                    { label: 'Traded in', value: String(all.tradedIn.length), tone: 'text-[#d8b4fe]' },
                     { label: 'Awaiting', value: String(all.pending.length), tone: 'text-foreground' },
-                    { label: 'Spent on retentions', value: formatPrice(Math.round(all.retainedSpend * 100) / 100), tone: 'text-primary' },
+                    { label: 'Spent on retentions', value: formatPrice(Math.round(all.retainedSpend * 100) / 100), tone: 'text-primary', wide: true },
                 ].map((s) => (
-                    <div key={s.label} className="bg-card p-4 md:p-5">
+                    <div key={s.label} className={cn('bg-card p-4 md:p-5', s.wide && 'col-span-2 lg:col-span-1')}>
                         <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{s.label}</div>
                         <div className={cn('mt-1 font-display text-3xl font-bold tabular-nums md:text-4xl', s.tone)}>{s.value}</div>
                     </div>
@@ -192,7 +194,8 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                                 key={p.id}
                                 className={cn(
                                     'flex w-60 shrink-0 items-center gap-3 rounded-lg border border-border bg-card p-2.5 transition-colors duration-1000',
-                                    isFresh(p, now) && (p.status === 'retained' ? 'border-success/50' : 'border-destructive/50')
+                                    isFresh(p, now) &&
+                                        { retained: 'border-success/50', released: 'border-destructive/50', traded: 'border-[#a855f7]/60', pending: '' }[displayStatus(p)]
                                 )}
                             >
                                 <PlayerAvatar photoKey={p.photo_key} name={p.player_name} className="h-10 w-10" />
@@ -200,7 +203,7 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                                     <div className="truncate text-sm font-medium">{p.player_name}</div>
                                     <div className="mt-0.5 flex items-center gap-1.5">
                                         <TeamChip code={p.team_code} />
-                                        <StatusPill status={p.status} />
+                                        <StatusPill status={displayStatus(p)} />
                                     </div>
                                 </div>
                             </div>
@@ -305,8 +308,13 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                                 </Link>
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 border-y border-border px-4 py-2 text-xs text-muted-foreground tabular-nums">
                                     <span>
-                                        <b className="text-success">{sum.retained.length}</b> retained
+                                        <b className="text-success">{sum.retainedOnly.length}</b> retained
                                     </span>
+                                    {sum.tradedIn.length > 0 && (
+                                        <span>
+                                            <b className="text-[#d8b4fe]">{sum.tradedIn.length}</b> traded in
+                                        </span>
+                                    )}
                                     <span>
                                         <b className="text-destructive">{sum.released.length}</b> released
                                     </span>
@@ -325,23 +333,32 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                                     const filtering = Boolean(q || overseasOnly);
                                     const byPrice = (list: SquadPlayer[]) =>
                                         [...list].sort((a, b) => b.price - a.price || a.sort_order - b.sort_order);
-                                    const r = byPrice(v.retained);
+                                    const r = byPrice(v.retainedOnly);
+                                    const tr = byPrice(v.tradedIn);
                                     const x = byPrice(v.released);
                                     const pend = v.pending;
-                                    let nr = r.length, nx = x.length, np = pend.length;
+                                    let nr = r.length, nt = tr.length, nx = x.length, np = pend.length;
                                     if (!filtering) {
-                                        nr = Math.min(r.length, x.length ? 4 : PREVIEW);
-                                        nx = Math.min(x.length, PREVIEW - nr);
-                                        nr = Math.min(r.length, PREVIEW - nx);
-                                        np = Math.min(pend.length, PREVIEW - nr - nx);
+                                        nt = Math.min(tr.length, 3);
+                                        const room = PREVIEW - nt;
+                                        nr = Math.min(r.length, x.length ? Math.min(4, room) : room);
+                                        nx = Math.min(x.length, room - nr);
+                                        nr = Math.min(r.length, room - nx);
+                                        np = Math.min(pend.length, room - nr - nx);
                                     }
-                                    const hidden = visible.length - nr - nx - np;
+                                    const hidden = visible.length - nr - nt - nx - np;
                                     return (
                                         <div className="flex flex-1 flex-col px-2 pb-2">
                                             {nr > 0 && (
                                                 <>
                                                     <SectionLabel status="retained" count={r.length} />
                                                     <ul>{r.slice(0, nr).map((p) => <PlayerRow key={p.id} p={p} fresh={isFresh(p, now)} />)}</ul>
+                                                </>
+                                            )}
+                                            {nt > 0 && (
+                                                <>
+                                                    <SectionLabel status="traded" count={tr.length} />
+                                                    <ul>{tr.slice(0, nt).map((p) => <PlayerRow key={p.id} p={p} fresh={isFresh(p, now)} />)}</ul>
                                                 </>
                                             )}
                                             {nx > 0 && (
@@ -352,7 +369,7 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                                             )}
                                             {np > 0 && (
                                                 <>
-                                                    {r.length + x.length > 0 ? (
+                                                    {r.length + tr.length + x.length > 0 ? (
                                                         <SectionLabel status="pending" count={pend.length} />
                                                     ) : (
                                                         <div className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">

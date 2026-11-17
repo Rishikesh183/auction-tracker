@@ -9,7 +9,8 @@ import { TEAMS, getTeam } from '@/lib/teams';
 import { abs } from '@/lib/site';
 
 export const revalidate = 30;
-export const dynamicParams = false; // only the 10 team codes
+// Unknown team codes 404 via notFound() below. (Not `dynamicParams = false`: in Next 15 that
+// makes every team page 404 after revalidateTag, i.e. after any admin change.)
 
 export function generateStaticParams() {
     return TEAMS.map((t) => ({ team: t.code }));
@@ -21,10 +22,10 @@ export async function generateMetadata({ params }: { params: Promise<{ team: str
     const snap = await trySquadSnapshot();
     const s = summarize((snap?.players ?? []).filter((p) => p.team_code === team.code));
     const title = `${team.name} (${team.code}) Retained & Released Players 2027 – IPL 2027 Retention List`;
-    const top = [...s.retained].sort((a, b) => b.price - a.price).slice(0, 4).map((p) => p.player_name);
+    const top = [...s.retainedOnly].sort((a, b) => b.price - a.price).slice(0, 4).map((p) => p.player_name);
     const description =
         s.retained.length + s.released.length > 0
-            ? `${team.code} retained ${s.retained.length} and released ${s.released.length} for IPL 2027${top.length ? ` — retained: ${top.join(', ')}` : ''}. Full ${team.name} retention list, prices and purse for the IPL 2027 auction.`
+            ? `${team.code} retained ${s.retainedOnly.length} and released ${s.released.length} for IPL 2027${top.length ? ` — retained: ${top.join(', ')}` : ''}. Full ${team.name} retention list, prices and purse for the IPL 2027 auction.`
             : `${team.name} IPL 2027 retention list, released players, prices and purse for the IPL 2027 auction. Live from 17 Nov, 6 PM IST.`;
     return {
         title,

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useSquads } from '@/lib/useSquads';
-import { summarize } from '@/lib/squads';
+import { summarize, type SquadPlayer } from '@/lib/squads';
 import { TEAMS, getTeam, SQUAD_LIMIT, OVERSEAS_LIMIT } from '@/lib/teams';
 import PlayerAvatar from '@/components/PlayerAvatar';
 import { PlayerRow, PlayerTags, SectionLabel, TeamChip, formatPrice, isFresh, useNow } from '@/components/retention';
@@ -34,7 +34,8 @@ export default function RetentionTeamView({ code, initial }: { code: string; ini
     const purse = purses[code];
 
     const stats = [
-        { label: 'Retained', value: String(sum.retained.length), tone: 'text-success' },
+        { label: 'Retained', value: String(sum.retainedOnly.length), tone: 'text-success' },
+        ...(sum.tradedIn.length ? [{ label: 'Traded in', value: String(sum.tradedIn.length), tone: 'text-[#d8b4fe]' }] : []),
         { label: 'Released', value: String(sum.released.length), tone: 'text-destructive' },
         { label: 'Retention spend', value: formatPrice(Math.round(sum.retainedSpend * 100) / 100), tone: 'text-foreground' },
         { label: 'Auction purse', value: purse == null ? 'TBA' : formatPrice(purse), tone: 'text-primary' },
@@ -70,9 +71,17 @@ export default function RetentionTeamView({ code, initial }: { code: string; ini
                         {sum.announced ? 'Retention list announced' : `${sum.pending.length} players awaiting decision`}
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3 lg:grid-cols-6">
-                    {stats.map((s) => (
-                        <div key={s.label} className="bg-card px-5 py-4">
+                <div
+                    className={cn(
+                        'grid grid-cols-2 gap-px border-t border-border bg-border',
+                        stats.length > 6 ? 'sm:grid-cols-4 lg:grid-cols-7' : 'sm:grid-cols-3 lg:grid-cols-6'
+                    )}
+                >
+                    {stats.map((s, i) => (
+                        <div
+                            key={s.label}
+                            className={cn('bg-card px-5 py-4', stats.length % 2 === 1 && i === stats.length - 1 && 'col-span-2 sm:col-span-1')}
+                        >
                             <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{s.label}</div>
                             <div className={cn('mt-1 font-display text-2xl font-bold tabular-nums md:text-3xl', s.tone)}>{s.value}</div>
                         </div>
@@ -80,46 +89,11 @@ export default function RetentionTeamView({ code, initial }: { code: string; ini
                 </div>
             </div>
 
-            {/* Retained - photo cards */}
-            <section className="mt-8">
-                <h2 className="mb-3 flex items-center gap-2 font-display text-2xl font-bold uppercase tracking-wide">
-                    <span className="h-2 w-2 rounded-full bg-success" />
-                    Retained
-                    <span className="text-muted-foreground tabular-nums">{sum.retained.length}</span>
-                </h2>
-                {sum.retained.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                        {sum.retained.map((p) => (
-                            <div
-                                key={p.id}
-                                className={cn(
-                                    'overflow-hidden rounded-xl border bg-card transition-colors duration-1000',
-                                    isFresh(p, now) ? 'border-success/60' : 'border-border'
-                                )}
-                            >
-                                <div className="relative aspect-square bg-muted">
-                                    <PlayerAvatar photoKey={p.photo_key} name={p.player_name} className="h-full w-full rounded-none" />
-                                </div>
-                                <div className="p-3">
-                                    <div className="truncate text-sm font-semibold">{p.player_name}</div>
-                                    <div className="mt-1 flex items-center justify-between gap-2">
-                                        <span className="flex items-center gap-1">
-                                            <PlayerTags p={p} />
-                                        </span>
-                                        <span className={cn('text-sm font-bold tabular-nums', p.price >= 10 ? 'text-primary' : 'text-foreground')}>
-                                            {formatPrice(p.price)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="rounded-xl border border-border bg-card py-10 text-center text-sm text-muted-foreground">
-                        No retentions announced yet
-                    </div>
-                )}
-            </section>
+            {/* Retained / traded in - photo cards */}
+            <PhotoSection title="Retained" dot="bg-success" players={sum.retainedOnly} now={now} freshBorder="border-success/60" empty="No retentions announced yet" />
+            {sum.tradedIn.length > 0 && (
+                <PhotoSection title="Traded in" dot="bg-[#a855f7]" players={sum.tradedIn} now={now} freshBorder="border-[#a855f7]/60" />
+            )}
 
             <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <section className="rounded-xl border border-border bg-card p-2">
@@ -147,5 +121,61 @@ export default function RetentionTeamView({ code, initial }: { code: string; ini
                 ))}
             </div>
         </div>
+    );
+}
+
+function PhotoSection({
+    title,
+    dot,
+    players,
+    now,
+    freshBorder,
+    empty,
+}: {
+    title: string;
+    dot: string;
+    players: SquadPlayer[];
+    now: number | null;
+    freshBorder: string;
+    empty?: string;
+}) {
+    return (
+        <section className="mt-8">
+            <h2 className="mb-3 flex items-center gap-2 font-display text-2xl font-bold uppercase tracking-wide">
+                <span className={cn('h-2 w-2 rounded-full', dot)} />
+                {title}
+                <span className="text-muted-foreground tabular-nums">{players.length}</span>
+            </h2>
+            {players.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                    {players.map((p) => (
+                        <div
+                            key={p.id}
+                            className={cn(
+                                'overflow-hidden rounded-xl border bg-card transition-colors duration-1000',
+                                isFresh(p, now) ? freshBorder : 'border-border'
+                            )}
+                        >
+                            <div className="relative aspect-square bg-muted">
+                                <PlayerAvatar photoKey={p.photo_key} name={p.player_name} className="h-full w-full rounded-none" />
+                            </div>
+                            <div className="p-3">
+                                <div className="truncate text-sm font-semibold">{p.player_name}</div>
+                                <div className="mt-1 flex items-center justify-between gap-2">
+                                    <span className="flex items-center gap-1">
+                                        <PlayerTags p={p} />
+                                    </span>
+                                    <span className={cn('text-sm font-bold tabular-nums', p.price >= 10 ? 'text-primary' : 'text-foreground')}>
+                                        {formatPrice(p.price)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="rounded-xl border border-border bg-card py-10 text-center text-sm text-muted-foreground">{empty}</div>
+            )}
+        </section>
     );
 }

@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
         title: TITLE,
         description: live
-            ? `${s!.retained.length} retained, ${s!.released.length} released so far. ${DESCRIPTION}`
+            ? `${s!.retainedOnly.length} retained, ${s!.released.length} released so far. ${DESCRIPTION}`
             : DESCRIPTION,
         alternates: { canonical: '/retention' },
         openGraph: {

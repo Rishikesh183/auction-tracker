@@ -33,7 +33,10 @@ export function teamFaq(team: TeamMeta, players: SquadPlayer[], purse: number | 
     out.push({
         q: `Who has ${team.name} (${short}) retained for IPL 2027?`,
         a: s.retained.length
-            ? `${team.name} have retained ${s.retained.length} player${s.retained.length === 1 ? '' : 's'} for IPL 2027: ${names(byPriceDesc(s.retained))}.` +
+            ? (s.retainedOnly.length
+                ? `${team.name} have retained ${s.retainedOnly.length} player${s.retainedOnly.length === 1 ? '' : 's'} for IPL 2027: ${names(byPriceDesc(s.retainedOnly))}.`
+                : `${team.name} have not retained any players yet.`) +
+            (s.tradedIn.length ? ` They traded in ${names(byPriceDesc(s.tradedIn))}.` : '') +
             (s.pending.length ? ` ${s.pending.length} more decisions are still awaited.` : '')
             : started
                 ? `${team.name} have not retained any players yet; ${s.pending.length} decisions are still awaited.`
@@ -105,7 +108,7 @@ export function overallFaq(players: SquadPlayer[], purses: Record<string, number
             q: 'How many players were retained and released for IPL 2027?',
             a:
                 s.retained.length + s.released.length > 0
-                    ? `So far ${s.retained.length} players have been retained and ${s.released.length} released across the 10 IPL teams, with ${fmt(s.retainedSpend)} committed to retentions.` +
+                    ? `So far ${s.retainedOnly.length} players have been retained${s.tradedIn.length ? `, ${s.tradedIn.length} traded` : ''} and ${s.released.length} released across the 10 IPL teams, with ${fmt(s.retainedSpend)} committed to retentions.` +
                     (s.pending.length ? ` ${s.pending.length} decisions are still awaited.` : '')
                     : `Retentions are announced on ${RETENTION_DATE}. All 10 teams currently have ${s.total} players combined.`,
         },

@@ -2,6 +2,14 @@
 
 export type SquadStatus = 'pending' | 'retained' | 'released';
 
+/** What viewers see: a retained player who joined by trade shows as "traded". */
+export type DisplayStatus = SquadStatus | 'traded';
+
+/** Joined this team by trade and kept (not released). */
+export const isTradedIn = (p: Pick<SquadPlayer, 'acquired_via' | 'status'>) => p.acquired_via === 'trade' && p.status === 'retained';
+
+export const displayStatus = (p: Pick<SquadPlayer, 'acquired_via' | 'status'>): DisplayStatus => (isTradedIn(p) ? 'traded' : p.status);
+
 export interface SquadPlayer {
     id: string;
     season: number;
@@ -72,6 +80,10 @@ export function summarize(players: SquadPlayer[]) {
         retained,
         released,
         pending,
+        /** retained, minus players who joined by trade */
+        retainedOnly: retained.filter((p) => !isTradedIn(p)),
+        /** joined by trade (still in the squad) */
+        tradedIn: retained.filter(isTradedIn),
         total: players.length,
         retainedSpend: retained.reduce((s, p) => s + Number(p.price), 0),
         releasedValue: released.reduce((s, p) => s + Number(p.price), 0),

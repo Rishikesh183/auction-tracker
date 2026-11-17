@@ -16,7 +16,7 @@ export default async function Image() {
         title: 'Who stays, who goes: all 10 teams',
         stats: started
             ? [
-                { label: 'Retained', value: String(s.retained.length), color: '#2fbf71' },
+                { label: 'Retained', value: String(s.retainedOnly.length), color: '#2fbf71' },
                 { label: 'Released', value: String(s.released.length), color: '#e5484d' },
                 { label: 'Awaiting', value: String(s.pending.length) },
             ]

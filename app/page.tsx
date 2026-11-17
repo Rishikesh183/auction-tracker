@@ -72,7 +72,7 @@ export default function Home() {
                     <div className="mt-auto grid grid-cols-3 gap-4 pt-8">
                         {retentionLive || allIn ? (
                             [
-                                { label: 'Retained', value: all.retained.length, tone: 'text-success' },
+                                { label: 'Retained', value: all.retainedOnly.length, tone: 'text-success' },
                                 { label: 'Released', value: all.released.length, tone: 'text-destructive' },
                                 { label: 'Teams in', value: `${announced}/10`, tone: 'text-foreground' },
                             ].map((s) => (
