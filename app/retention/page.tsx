@@ -57,7 +57,7 @@ export default async function RetentionPage() {
             inLanguage: 'en-IN',
             isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: abs('/') },
             ...(lastChange ? { dateModified: lastChange } : {}),
-            about: { '@type': 'SportsEvent', name: 'IPL 2027 player retentions', startDate: '2026-11-17T17:00:00+05:30', sport: 'Cricket' },
+            about: { '@type': 'SportsEvent', name: 'IPL 2027 player retentions', startDate: '2026-11-17T18:00:00+05:30', sport: 'Cricket' },
         },
         {
             '@context': 'https://schema.org',

@@ -58,7 +58,7 @@ export default function Home() {
                             </span>
                         ) : (
                             <span className="rounded bg-muted px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                                17 Nov · 5:00 PM IST
+                                17 Nov · 6:00 PM IST
                             </span>
                         )}
                         <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-foreground" />

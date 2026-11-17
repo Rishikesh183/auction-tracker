@@ -33,7 +33,7 @@ export function getTeam(code: string): TeamMeta | undefined {
 export const SEASON = 2027;
 
 /** Retention announcements go live (IST). */
-export const RETENTION_LIVE_AT = new Date('2026-11-17T17:00:00+05:30');
+export const RETENTION_LIVE_AT = new Date('2026-11-17T18:00:00+05:30');
 /** IPL 2027 auction day (IST). */
 export const AUCTION_2027_AT = new Date('2026-12-16T00:00:00+05:30');
 

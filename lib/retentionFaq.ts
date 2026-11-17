@@ -20,7 +20,8 @@ const names = (list: SquadPlayer[], withPrice = true, max = 40) => {
 
 const byPriceDesc = (list: SquadPlayer[]) => [...list].sort((a, b) => b.price - a.price);
 
-const RETENTION_DATE = '17 November 2026, 5:00 PM IST';
+const RETENTION_DATE = '17 November 2026, 6:00 PM IST';
+const STREAM = 'JioHotstar';
 const AUCTION_DATE = '16 December 2026';
 
 export function teamFaq(team: TeamMeta, players: SquadPlayer[], purse: number | null): QA[] {
@@ -58,6 +59,11 @@ export function teamFaq(team: TeamMeta, players: SquadPlayer[], purse: number | 
                 (s.retained.length ? ` They have committed ${fmt(s.retainedSpend)} to ${s.retained.length} retained players.` : ''),
     });
 
+    out.push({
+        q: `Where can I watch the ${short} retention announcement live?`,
+        a: `The IPL 2027 retentions, including ${team.name}'s list, are streamed live on ${STREAM}. The retention deadline is ${RETENTION_DATE}, and ${short}'s retained and released players show up on this page as soon as they are announced.`,
+    });
+
     const captain = players.find((p) => p.is_captain);
     if (captain) {
         out.push({
@@ -77,6 +83,10 @@ export function overallFaq(players: SquadPlayer[], purses: Record<string, number
         {
             q: 'When are the IPL 2027 retentions announced?',
             a: `IPL 2027 retention and release lists are announced on ${RETENTION_DATE}. ${announced.length} of 10 teams have announced so far.`,
+        },
+        {
+            q: 'Where can I watch the IPL 2027 retentions live?',
+            a: `The IPL 2027 retention announcements are streamed live on ${STREAM}. The retention deadline is ${RETENTION_DATE}. Every retained and released player also appears on this page as soon as it is announced.`,
         },
         {
             q: 'When is the IPL 2027 auction?',

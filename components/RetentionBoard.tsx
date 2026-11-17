@@ -112,7 +112,7 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                         </span>
                     ) : cd ? (
                         <div className="text-left md:text-right">
-                            <div className="text-xs uppercase tracking-wider text-muted-foreground">Lists drop at 5:00 PM IST · 17 Nov</div>
+                            <div className="text-xs uppercase tracking-wider text-muted-foreground">Lists drop at 6:00 PM IST · 17 Nov</div>
                             <div className="font-display text-3xl font-bold tabular-nums">
                                 {cd.d > 0 && `${cd.d}d `}
                                 {String(cd.h).padStart(2, '0')}:{String(cd.m).padStart(2, '0')}:{String(cd.s).padStart(2, '0')}

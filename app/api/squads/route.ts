@@ -4,7 +4,7 @@ import { SEASON } from '@/lib/teams';
 
 // Public, cached snapshot of all squads for the season.
 // Viewers load this instead of querying Supabase directly, so a spike of
-// thousands of visitors at 5 PM hits the CDN, not the database.
+// thousands of visitors at 6 PM hits the CDN, not the database.
 export const dynamic = 'force-dynamic';
 
 const TTL_MS = 2000;
