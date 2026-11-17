@@ -6,11 +6,18 @@ import { LIVE_STREAM_KEY, cleanStreamUrl } from '@/lib/liveStream';
 export const dynamic = 'force-dynamic';
 
 // GET: public. The header polls this, so let the CDN absorb the traffic for a few seconds.
+// Last value read, kept if Supabase errors so the button doesn't vanish mid-stream.
+let lastUrl: string | null = null;
+
 export async function GET() {
-    let url: string | null = null;
+    let url: string | null = lastUrl;
     if (hasServiceKey) {
-        const { data } = await supabaseAdmin.from('site_settings').select('value').eq('key', LIVE_STREAM_KEY).maybeSingle();
-        url = cleanStreamUrl(data?.value);
+        try {
+            const { data, error } = await supabaseAdmin.from('site_settings').select('value').eq('key', LIVE_STREAM_KEY).maybeSingle();
+            if (!error) url = lastUrl = cleanStreamUrl(data?.value);
+        } catch {
+            /* keep lastUrl */
+        }
     }
     return NextResponse.json(
         { url },
@@ -37,5 +44,6 @@ export const POST = withAdmin(async (req: NextRequest) => {
         const hint = error.code === '42P01' || /site_settings/.test(error.message) ? ' (run supabase/live-stream.sql)' : '';
         return NextResponse.json({ error: error.message + hint }, { status: 500 });
     }
+    lastUrl = url;
     return NextResponse.json({ url });
 });

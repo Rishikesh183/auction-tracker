@@ -20,6 +20,6 @@ export default async function Image() {
                 { label: 'Released', value: String(s.released.length), color: '#e5484d' },
                 { label: 'Awaiting', value: String(s.pending.length) },
             ]
-            : [{ label: 'Lists drop', value: '17 Nov · 5 PM IST', color: '#f2b33d' }],
+            : [{ label: 'Lists drop', value: '17 Nov · 6 PM IST', color: '#f2b33d' }],
     });
 }

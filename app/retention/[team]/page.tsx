@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ team: str
     const description =
         s.retained.length + s.released.length > 0
             ? `${team.code} retained ${s.retained.length} and released ${s.released.length} for IPL 2027${top.length ? ` — retained: ${top.join(', ')}` : ''}. Full ${team.name} retention list, prices and purse for the IPL 2027 auction.`
-            : `${team.name} IPL 2027 retention list, released players, prices and purse for the IPL 2027 auction. Live from 17 Nov, 5 PM IST.`;
+            : `${team.name} IPL 2027 retention list, released players, prices and purse for the IPL 2027 auction. Live from 17 Nov, 6 PM IST.`;
     return {
         title,
         description,

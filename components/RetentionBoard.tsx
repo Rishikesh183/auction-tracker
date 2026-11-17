@@ -112,7 +112,7 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                         </span>
                     ) : cd ? (
                         <div className="text-left md:text-right">
-                            <div className="text-xs uppercase tracking-wider text-muted-foreground">Lists drop at 5:00 PM IST · 17 Nov</div>
+                            <div className="text-xs uppercase tracking-wider text-muted-foreground">Lists drop at 6:00 PM IST · 17 Nov</div>
                             <div className="font-display text-3xl font-bold tabular-nums">
                                 {cd.d > 0 && `${cd.d}d `}
                                 {String(cd.h).padStart(2, '0')}:{String(cd.m).padStart(2, '0')}:{String(cd.s).padStart(2, '0')}
@@ -122,10 +122,10 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <span
                             className="flex items-center gap-1.5 text-xs"
-                            title={live ? 'Updates arrive instantly' : 'Live connection busy - refreshing every few seconds'}
+                            title={live ? 'Live - updates within a few seconds' : 'Reconnecting - showing the last update'}
                         >
                             <span className={cn('h-1.5 w-1.5 rounded-full', live ? 'bg-success' : 'bg-warning')} />
-                            {live ? 'Live' : 'Auto-refresh'}
+                            {live ? 'Live' : 'Reconnecting'}
                         </span>
                         <span className="tabular-nums">
                             <b className="text-foreground">{teamsAnnounced}</b>/10 teams announced

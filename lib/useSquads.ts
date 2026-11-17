@@ -23,6 +23,18 @@ interface Options {
 const POLL_MS = 10_000;
 
 /**
+ * Viewer pages poll the CDN-cached /api/squads snapshot instead of opening a
+ * Supabase Realtime socket each. postgres_changes fans every row change out to
+ * every subscriber, so one "publish team list" (~20 rows) x a few hundred viewers
+ * blows through the plan's messages-per-second limit, and Supabase then drops
+ * every socket at once. Polling the CDN scales with no Supabase load.
+ * Set NEXT_PUBLIC_VIEWER_REALTIME=on to go back to per-viewer realtime.
+ * Admin pages (fresh: true) always use realtime.
+ */
+const VIEWER_REALTIME = process.env.NEXT_PUBLIC_VIEWER_REALTIME === 'on';
+const VIEWER_POLL_MS = 8_000;
+
+/**
  * All squad players + purses for the season, kept live.
  * - Realtime (Supabase postgres_changes) pushes each change instantly.
  * - If realtime is down or over the plan's connection limit, it falls back to
@@ -30,6 +42,7 @@ const POLL_MS = 10_000;
  */
 export function useSquads(opts: Options | PlayerChange = {}) {
     const { onPlayerChange, fresh = false, initial } = typeof opts === 'function' ? { onPlayerChange: opts } : opts;
+    const useRealtime = fresh || VIEWER_REALTIME;
 
     const [players, setPlayers] = useState<SquadPlayer[]>(() => (initial?.players ?? []).map(normalize));
     const [purses, setPurses] = useState<Record<string, number | null>>(() =>
@@ -41,10 +54,20 @@ export function useSquads(opts: Options | PlayerChange = {}) {
     const changeRef = useRef(onPlayerChange);
     changeRef.current = onPlayerChange;
     const playersRef = useRef<SquadPlayer[]>([]);
+    const polledOnce = useRef(false);
     playersRef.current = players;
 
-    const apply = (p: any[], t: Pick<SeasonTeam, 'team_code' | 'purse'>[], snapshotAt?: string) => {
+    const apply = (p: any[], t: Pick<SeasonTeam, 'team_code' | 'purse'>[], snapshotAt?: string, notify = false) => {
         const incoming = p.map(normalize);
+        // Polling mode: report changes since the last snapshot (realtime does this per event)
+        // (skipped on the first load, so opening the page doesn't replay old changes as toasts)
+        if (notify && polledOnce.current && changeRef.current && playersRef.current.length > 0) {
+            const before = new Map(playersRef.current.map((r) => [r.id, r]));
+            for (const r of incoming) {
+                const prev = before.get(r.id) ?? null;
+                if (!prev || ts(r.updated_at) > ts(prev.updated_at)) changeRef.current(r, prev);
+            }
+        }
         setPlayers((current) => {
             if (current.length === 0 || !snapshotAt) return incoming;
             // A cached snapshot can be a few seconds old: never let it overwrite a
@@ -76,16 +99,19 @@ export function useSquads(opts: Options | PlayerChange = {}) {
                 const r = await fetch('/api/squads');
                 const d = await r.json();
                 if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
-                apply(d.players, d.teams, d.at);
+                apply(d.players, d.teams, d.at, !useRealtime);
+                polledOnce.current = true;
+                if (!useRealtime) setLive(true);
             }
             setError(null);
         } catch (e) {
+            if (!useRealtime) setLive(false);
             // Keep showing the last good data if we have it
             if (playersRef.current.length === 0) setError((e as Error).message);
         } finally {
             setLoading(false);
         }
-    }, [fresh]);
+    }, [fresh, useRealtime]);
 
     useEffect(() => {
         load();
@@ -103,6 +129,22 @@ export function useSquads(opts: Options | PlayerChange = {}) {
             if (poll) clearInterval(poll);
             poll = null;
         };
+
+        // Refresh when the tab comes back after being hidden for a while
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') load();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+
+        if (!useRealtime) {
+            poll = setInterval(() => {
+                if (document.visibilityState === 'visible') load();
+            }, VIEWER_POLL_MS + Math.random() * 3000);
+            return () => {
+                stopPolling();
+                document.removeEventListener('visibilitychange', onVisible);
+            };
+        }
 
         const channel = supabase
             .channel(uniqueChannelName('squads'))
@@ -145,18 +187,12 @@ export function useSquads(opts: Options | PlayerChange = {}) {
                 }
             });
 
-        // Refresh when the tab comes back after being hidden for a while
-        const onVisible = () => {
-            if (document.visibilityState === 'visible') load();
-        };
-        document.addEventListener('visibilitychange', onVisible);
-
         return () => {
             stopPolling();
             document.removeEventListener('visibilitychange', onVisible);
             supabase.removeChannel(channel);
         };
-    }, [load]);
+    }, [load, useRealtime]);
 
     return { players, purses, loading, error, live, reload: load };
 }

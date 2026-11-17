@@ -21,7 +21,7 @@ export async function GET() {
         `> ${SITE_DESCRIPTION}`,
         '',
         `Last updated: ${snap?.at ?? new Date().toISOString()}`,
-        'Retention lists announced: 17 November 2026, 5:00 PM IST. IPL 2027 auction: 16 December 2026.',
+        'Retention lists announced: 17 November 2026, 6:00 PM IST (deadline), streamed live on JioHotstar. IPL 2027 auction: 16 December 2026.',
         `Totals so far: ${all.retained.length} retained, ${all.released.length} released, ${all.pending.length} awaiting decision.`,
         '',
         '## Pages',
