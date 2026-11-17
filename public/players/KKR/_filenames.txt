@@ -1,4 +1,4 @@
-Photos for KKR. Use these exact file names (.png, .jpg, .jpeg or .webp all work).
+Photos for KKR. Use these exact file names (.png, .jpg, .jpeg, .webp or .avif all work).
 Square-ish head-and-shoulders shots look best. Missing photos show the default silhouette.
 
 ajinkya-rahane.png   (Ajinkya Rahane)

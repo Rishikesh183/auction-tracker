@@ -15,11 +15,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             appearance={{
                 variables: {
                     colorPrimary: '#f2b33d',
-                    colorText: '#ecedee',
-                    colorTextSecondary: '#8b919a',
+                    colorForeground: '#ecedee',
+                    colorMutedForeground: '#8b919a',
                     colorBackground: '#111317',
-                    colorInputBackground: '#0a0b0d',
-                    colorInputText: '#ecedee',
+                    colorInput: '#0a0b0d',
+                    colorInputForeground: '#ecedee',
                     colorNeutral: '#ecedee',
                     borderRadius: '0.5rem',
                 },

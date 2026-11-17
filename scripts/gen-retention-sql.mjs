@@ -133,7 +133,7 @@ for (const [team, files] of Object.entries(folders)) {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
         path.join(dir, '_filenames.txt'),
-        `Photos for ${team}. Use these exact file names (.png, .jpg, .jpeg or .webp all work).\n` +
+        `Photos for ${team}. Use these exact file names (.png, .jpg, .jpeg, .webp or .avif all work).\n` +
         `Square-ish head-and-shoulders shots look best. Missing photos show the default silhouette.\n\n` +
         files.join('\n') + '\n'
     );

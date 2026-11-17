@@ -10,6 +10,8 @@ import Link from 'next/link';
 import AdminGate, { type AdminCtx } from '@/components/AdminGate';
 import { formatCr, purseTone } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { Toaster } from 'sonner';
+import LiveStreamControl from '@/components/LiveStreamControl';
 
 export default function AdminPage() {
     return <AdminGate>{(ctx) => <AuctionControl ctx={ctx} />}</AdminGate>;
@@ -288,6 +290,9 @@ function AuctionControl({ ctx }: { ctx: AdminCtx }) {
                     {ctx.userMenu}
                 </div>
             </div>
+
+            <Toaster position="top-right" theme="dark" />
+            <LiveStreamControl onUnauthorized={ctx.recheck} />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {/* Player Setup */}

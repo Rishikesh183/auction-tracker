@@ -1,13 +1,17 @@
 // Scans public/players/<TEAM>/ and writes lib/player-photos.json:
-//   { "CSK/sanju-samson": "/players/CSK/sanju-samson.png", ... }
+//   { "csk/sanju-samson": "/players/CSK/sanju-samson.webp", ... }
+// Keys are fully lower-cased (team AND name) because PlayerAvatar lower-cases
+// the DB photo_key before looking it up.
 // Runs automatically before `npm run dev` and `npm run build`, so after adding
 // photos just restart dev / redeploy.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, '$1')), '..');
+// fileURLToPath handles Windows drive letters and spaces/%20 in the path.
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const playersDir = path.join(root, 'public', 'players');
-const EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.avif']);
+const EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.avif', '.gif', '.svg']);
 
 const manifest = {};
 if (fs.existsSync(playersDir)) {
@@ -17,8 +21,9 @@ if (fs.existsSync(playersDir)) {
         for (const file of fs.readdirSync(dir)) {
             const ext = path.extname(file).toLowerCase();
             if (!EXT.has(ext)) continue;
-            const key = `${team}/${path.basename(file, path.extname(file)).toLowerCase()}`;
-            manifest[key] = `/players/${team}/${file}`;
+            if (file === 'default.svg') continue;
+            const key = `${team}/${path.basename(file, path.extname(file))}`.toLowerCase();
+            manifest[key] = `/players/${encodeURIComponent(team)}/${encodeURIComponent(file)}`;
         }
     }
 }

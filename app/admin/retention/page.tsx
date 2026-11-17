@@ -15,6 +15,7 @@ import AdminGate, { AdminCheckingSkeleton, type AdminCtx } from '@/components/Ad
 import { Spinner } from '@/components/Skeletons';
 import { PlayerTags, StatusPill, TeamChip, formatPrice } from '@/components/retention';
 import { cn } from '@/lib/utils';
+import LiveStreamControl from '@/components/LiveStreamControl';
 
 async function api(body: Record<string, unknown>) {
     const res = await fetch('/api/retention', {
@@ -181,6 +182,8 @@ function RetentionControl({ ctx }: { ctx: AdminCtx }) {
             <p className="mt-3 text-xs text-muted-foreground">
                 Mistake? Every action can be undone (button above, or Undo on the toast), newest first, until you reload this page.
             </p>
+
+            <LiveStreamControl onUnauthorized={ctx.recheck} />
 
             {/* Team picker */}
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
