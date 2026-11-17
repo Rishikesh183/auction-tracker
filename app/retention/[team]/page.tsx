@@ -15,8 +15,8 @@ export function generateStaticParams() {
     return TEAMS.map((t) => ({ team: t.code }));
 }
 
-export async function generateMetadata({ params }: { params: { team: string } }): Promise<Metadata> {
-    const team = getTeam(params.team);
+export async function generateMetadata({ params }: { params: Promise<{ team: string }> }): Promise<Metadata> {
+    const team = getTeam((await params).team);
     if (!team) return {};
     const snap = await trySquadSnapshot();
     const s = summarize((snap?.players ?? []).filter((p) => p.team_code === team.code));
@@ -42,8 +42,8 @@ export async function generateMetadata({ params }: { params: { team: string } })
     };
 }
 
-export default async function RetentionTeamPage({ params }: { params: { team: string } }) {
-    const team = getTeam(params.team);
+export default async function RetentionTeamPage({ params }: { params: Promise<{ team: string }> }) {
+    const team = getTeam((await params).team);
     if (!team) notFound();
 
     const snap = await trySquadSnapshot();

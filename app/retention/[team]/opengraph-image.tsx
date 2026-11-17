@@ -8,8 +8,8 @@ export const alt = 'IPL 2027 retention list';
 export const size = OG_SIZE;
 export const contentType = 'image/png';
 
-export default async function Image({ params }: { params: { team: string } }) {
-    const team = getTeam(params.team) ?? TEAMS[0];
+export default async function Image({ params }: { params: Promise<{ team: string }> }) {
+    const team = getTeam((await params).team) ?? TEAMS[0];
     const snap = await trySquadSnapshot();
     const s = summarize((snap?.players ?? []).filter((p) => p.team_code === team.code));
     const purse = snap?.teams.find((t) => t.team_code === team.code)?.purse;
