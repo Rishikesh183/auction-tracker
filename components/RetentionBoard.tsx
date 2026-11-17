@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
 import { ArrowRight, ArrowUpRight, Search } from 'lucide-react';
@@ -23,15 +23,17 @@ import {
 import { cn } from '@/lib/utils';
 import { BoardSkeleton } from '@/components/Skeletons';
 import type { SquadSnapshot } from '@/lib/squadsServer';
+import TradesView from '@/components/TradesView';
+import { byTradeSeq } from '@/lib/squads';
 
-type View = 'squads' | 'pool';
+type View = 'squads' | 'pool' | 'trades';
 
 /** Players shown per team card before "View all". */
 const PREVIEW = 7;
 
 export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | null }) {
     const now = useNow(1000);
-    const { players, purses, loading, error, live } = useSquads({
+    const { players, purses, trades, loading, error, live } = useSquads({
         initial: initial ?? undefined,
         onPlayerChange: (next, prev) => {
         if (!next || !prev || next.status === prev.status) return;
@@ -68,6 +70,34 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                 .slice(0, 12),
         [players]
     );
+
+    // Trades: newest first, numbered oldest = #1
+    const tradeList = useMemo(() => [...trades].sort(byTradeSeq), [trades]);
+    const tradeNo = useMemo(() => new Map(tradeList.map((t, i) => [t.id, tradeList.length - i])), [tradeList]);
+    const shownTrades = tradeList.filter(
+        (t) =>
+            (!team || t.team_a === team || t.team_b === team) &&
+            (!q || t.legs.some((l) => l.player_name.toLowerCase().includes(q))) &&
+            (!overseasOnly || t.legs.some((l) => l.country))
+    );
+
+    // Toast + highlight when a new trade lands while the page is open
+    const seenTrades = useRef<Set<string> | null>(null);
+    const [freshTrades, setFreshTrades] = useState<Map<string, number>>(new Map());
+    useEffect(() => {
+        if (loading) return;
+        if (!seenTrades.current) {
+            seenTrades.current = new Set(trades.map((t) => t.id));
+            return;
+        }
+        for (const t of trades) {
+            if (seenTrades.current.has(t.id)) continue;
+            seenTrades.current.add(t.id);
+            const names = t.legs.map((l) => `${l.player_name} → ${l.to_team}`).join(', ');
+            toast(`TRADE: ${t.team_a} ⇄ ${t.team_b}`, { description: names, duration: 6000 });
+            setFreshTrades((m) => new Map(m).set(t.id, Date.now()));
+        }
+    }, [trades, loading]);
 
     const pool = all.released.filter(matches).sort((a, b) => b.price - a.price || a.player_name.localeCompare(b.player_name));
 
@@ -182,18 +212,19 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
             {/* Controls */}
             <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                    <div className="inline-flex shrink-0 self-start rounded-lg border border-border bg-card p-1">
+                    <div className="scroll-thin inline-flex max-w-full shrink-0 self-start overflow-x-auto rounded-lg border border-border bg-card p-1">
                         {(
                             [
                                 ['squads', 'Squads'],
                                 ['pool', `Released pool · ${all.released.length}`],
+                                ['trades', `Trades · ${trades.length}`],
                             ] as [View, string][]
                         ).map(([v, label]) => (
                             <button
                                 key={v}
                                 onClick={() => setView(v)}
                                 className={cn(
-                                    'rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
+                                    'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-semibold transition-colors',
                                     view === v ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
                                 )}
                             >
@@ -346,6 +377,18 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                             </section>
                         );
                     })}
+                </div>
+            ) : view === 'trades' ? (
+                <div className="mt-6">
+                    <p className="mb-3 text-sm text-muted-foreground">
+                        Every IPL 2027 trade so far, newest first. Prices are the players&apos; new contract values.
+                    </p>
+                    <TradesView
+                        trades={shownTrades}
+                        numberOf={(t) => tradeNo.get(t.id) ?? 0}
+                        isFresh={(t) => now !== null && now - (freshTrades.get(t.id) ?? 0) < 30_000}
+                        emptyText={trades.length === 0 ? 'No trades yet. They show up here live.' : 'No trades match.'}
+                    />
                 </div>
             ) : (
                 /* Released pool */

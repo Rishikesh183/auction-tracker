@@ -1,7 +1,7 @@
 // Plain-language Q&A built from live squad data. Rendered visibly on the page
 // AND as FAQPage JSON-LD, so search engines / answer engines (Google AI
 // Overviews, ChatGPT search, Perplexity) can quote direct answers.
-import { summarize, type SquadPlayer } from './squads';
+import { byTradeSeq, summarize, type SquadPlayer, type Trade } from './squads';
 import { TEAMS, getTeam, type TeamMeta } from './teams';
 
 export interface QA {
@@ -74,7 +74,16 @@ export function teamFaq(team: TeamMeta, players: SquadPlayer[], purse: number | 
     return out;
 }
 
-export function overallFaq(players: SquadPlayer[], purses: Record<string, number | null>): QA[] {
+/** "Hardik Pandya (MI → PBKS, ₹18 crore)" for every player in every trade, oldest first. */
+export function tradeSummary(trades: Trade[]): string {
+    return [...trades]
+        .sort(byTradeSeq)
+        .reverse()
+        .map((t, i) => `${i + 1}. ${t.team_a}–${t.team_b}: ${t.legs.map((l) => `${l.player_name} (${l.from_team} → ${l.to_team}, ${fmt(l.price)})`).join(', ')}`)
+        .join('; ');
+}
+
+export function overallFaq(players: SquadPlayer[], purses: Record<string, number | null>, trades: Trade[] = []): QA[] {
     const s = summarize(players);
     const announced = TEAMS.filter((t) => summarize(players.filter((p) => p.team_code === t.code)).announced);
     const top = byPriceDesc(s.retained)[0];
@@ -101,6 +110,12 @@ export function overallFaq(players: SquadPlayer[], purses: Record<string, number
                     : `Retentions are announced on ${RETENTION_DATE}. All 10 teams currently have ${s.total} players combined.`,
         },
     ];
+    if (trades.length) {
+        out.push({
+            q: 'Which trades happened before the IPL 2027 auction?',
+            a: `${trades.length} trade${trades.length === 1 ? '' : 's'} so far, with new prices: ${tradeSummary(trades)}.`,
+        });
+    }
     if (top) {
         out.push({
             q: 'Who is the most expensive retained player for IPL 2027?',

@@ -39,7 +39,7 @@ export default async function RetentionPage() {
     const players = snap?.players ?? [];
     const purses = Object.fromEntries((snap?.teams ?? []).map((t) => [t.team_code, t.purse]));
 
-    const overall = overallFaq(players, purses);
+    const overall = overallFaq(players, purses, snap?.trades ?? []);
     const perTeam = TEAMS.flatMap((t) => teamFaq(t, players.filter((p) => p.team_code === t.code), purses[t.code] ?? null).slice(0, 2));
     const lastChange = players
         .map((p) => p.status_changed_at)

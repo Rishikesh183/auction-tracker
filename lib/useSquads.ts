@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { uniqueChannelName } from './realtime';
 import { SEASON } from './teams';
-import type { SeasonTeam, SquadPlayer } from './squads';
+import { normalizeTrade, type SeasonTeam, type SquadPlayer, type Trade } from './squads';
 
 type PlayerChange = (next: SquadPlayer | null, prev: SquadPlayer | null) => void;
 
@@ -17,7 +17,7 @@ interface Options {
      */
     fresh?: boolean;
     /** Server-rendered data: first paint (and crawlers) get the full lists. */
-    initial?: { players: SquadPlayer[]; teams: Pick<SeasonTeam, 'team_code' | 'purse'>[] };
+    initial?: { players: SquadPlayer[]; teams: Pick<SeasonTeam, 'team_code' | 'purse'>[]; trades?: Trade[] };
 }
 
 const POLL_MS = 10_000;
@@ -48,6 +48,7 @@ export function useSquads(opts: Options | PlayerChange = {}) {
     const [purses, setPurses] = useState<Record<string, number | null>>(() =>
         Object.fromEntries((initial?.teams ?? []).map((r) => [r.team_code, r.purse == null ? null : Number(r.purse)]))
     );
+    const [trades, setTrades] = useState<Trade[]>(() => (initial?.trades ?? []).map(normalizeTrade));
     const [loading, setLoading] = useState(!initial);
     const [error, setError] = useState<string | null>(null);
     const [live, setLive] = useState(false);
@@ -89,17 +90,21 @@ export function useSquads(opts: Options | PlayerChange = {}) {
     const load = useCallback(async () => {
         try {
             if (fresh) {
-                const [{ data: p, error: pe }, { data: t, error: te }] = await Promise.all([
+                const [{ data: p, error: pe }, { data: t, error: te }, { data: tr }] = await Promise.all([
                     supabase.from('squad_players').select('*').eq('season', SEASON).limit(1000),
                     supabase.from('season_teams').select('team_code, purse').eq('season', SEASON),
+                    // no error check: the trades table is optional until supabase/trades.sql is run
+                    supabase.from('trades').select('*').eq('season', SEASON).order('seq', { ascending: false }).limit(200),
                 ]);
                 if (pe || te) throw new Error((pe || te)!.message);
                 apply(p ?? [], t ?? []);
+                setTrades((tr ?? []).map(normalizeTrade));
             } else {
                 const r = await fetch('/api/squads');
                 const d = await r.json();
                 if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
                 apply(d.players, d.teams, d.at, !useRealtime);
+                if (Array.isArray(d.trades)) setTrades(d.trades.map(normalizeTrade));
                 polledOnce.current = true;
                 if (!useRealtime) setLive(true);
             }
@@ -194,7 +199,7 @@ export function useSquads(opts: Options | PlayerChange = {}) {
         };
     }, [load, useRealtime]);
 
-    return { players, purses, loading, error, live, reload: load };
+    return { players, purses, trades, loading, error, live, reload: load };
 }
 
 const ts = (iso: string) => Date.parse(iso) || 0;

@@ -20,6 +20,38 @@ export interface SquadPlayer {
     updated_at: string;
 }
 
+export interface TradeLeg {
+    player_id: string | null;
+    player_name: string;
+    from_team: string;
+    to_team: string;
+    /** New contract price after the trade (₹ Cr) */
+    price: number;
+    photo_key: string | null;
+    country: string | null;
+}
+
+export interface Trade {
+    id: string;
+    seq: number;
+    season: number;
+    team_a: string;
+    team_b: string;
+    legs: TradeLeg[];
+    created_at: string;
+}
+
+/** Newest first. */
+export const byTradeSeq = (a: Trade, b: Trade) => Number(b.seq) - Number(a.seq);
+
+export function normalizeTrade(t: any): Trade {
+    return {
+        ...t,
+        seq: Number(t.seq),
+        legs: (Array.isArray(t.legs) ? t.legs : []).map((l: any) => ({ ...l, price: Number(l.price) })),
+    };
+}
+
 export interface SeasonTeam {
     season: number;
     team_code: string;
