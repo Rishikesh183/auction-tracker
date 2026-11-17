@@ -1,5 +1,6 @@
 'use client';
 
+import { ListPageSkeleton } from '@/components/Skeletons';
 import { useState, useEffect } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -87,11 +88,7 @@ export default function CompletedAuctionPage() {
         .sort((a, b) => b.base_price - a.base_price);
 
     if (loading) {
-        return (
-            <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
-                Loading results…
-            </div>
-        );
+        return <ListPageSkeleton tiles={0} />;
     }
 
     const tabs = [

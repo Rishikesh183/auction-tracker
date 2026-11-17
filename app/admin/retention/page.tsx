@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PlayerAvatar from '@/components/PlayerAvatar';
-import AdminLogin from '@/components/AdminLogin';
+import AdminGate, { AdminCheckingSkeleton, type AdminCtx } from '@/components/AdminGate';
+import { Spinner } from '@/components/Skeletons';
 import { PlayerTags, StatusPill, TeamChip, formatPrice } from '@/components/retention';
 import { cn } from '@/lib/utils';
 
@@ -36,24 +37,11 @@ let undoSeq = 0;
 const fieldLabel = 'mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted-foreground';
 
 export default function AdminRetentionPage() {
-    const [auth, setAuth] = useState<'checking' | 'in' | 'out'>('checking');
-
-    useEffect(() => {
-        fetch('/api/admin/session')
-            .then((r) => r.json())
-            .then((d) => setAuth(d.authenticated ? 'in' : 'out'))
-            .catch(() => setAuth('out'));
-    }, []);
-
-    if (auth === 'checking') {
-        return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Checking login…</div>;
-    }
-    if (auth === 'out') return <AdminLogin onDone={() => setAuth('in')} />;
-    return <RetentionControl onLogout={() => setAuth('out')} />;
+    return <AdminGate>{(ctx) => <RetentionControl ctx={ctx} />}</AdminGate>;
 }
 
-function RetentionControl({ onLogout }: { onLogout: () => void }) {
-    const { players, purses, loading, error, reload } = useSquads();
+function RetentionControl({ ctx }: { ctx: AdminCtx }) {
+    const { players, purses, loading, error, reload } = useSquads({ fresh: true });
     const [team, setTeam] = useState(TEAMS[0].code);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [query, setQuery] = useState('');
@@ -112,7 +100,7 @@ function RetentionControl({ onLogout }: { onLogout: () => void }) {
             return true;
         } catch (e) {
             const msg = (e as Error).message;
-            if (msg === 'Not logged in') onLogout();
+            if (msg === 'Not logged in') ctx.recheck();
             toast.error(msg);
             return false;
         } finally {
@@ -141,12 +129,9 @@ function RetentionControl({ onLogout }: { onLogout: () => void }) {
             return n;
         });
 
-    const logout = async () => {
-        await fetch('/api/admin/session', { method: 'DELETE' });
-        onLogout();
-    };
+    const logout = () => ctx.logout();
 
-    if (loading) return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Loading squads…</div>;
+    if (loading) return <AdminCheckingSkeleton />;
     if (error) {
         return (
             <div className="mx-auto max-w-lg px-4 py-20 text-center">
@@ -189,6 +174,7 @@ function RetentionControl({ onLogout }: { onLogout: () => void }) {
                     <Button onClick={logout} variant="ghost" size="sm">
                         Log out
                     </Button>
+                    {ctx.userMenu}
                 </div>
             </div>
 
@@ -309,7 +295,12 @@ function RetentionControl({ onLogout }: { onLogout: () => void }) {
             {/* Sticky action bar */}
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur">
                 <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 px-4 py-3 md:px-8">
-                    <span className="mr-auto text-sm tabular-nums text-muted-foreground">
+                    <span className="mr-auto flex items-center gap-2 text-sm tabular-nums text-muted-foreground">
+                        {busy && (
+                            <span className="flex items-center gap-1.5 text-primary">
+                                <Spinner /> Saving…
+                            </span>
+                        )}
                         <b className="text-foreground">{selected.size}</b> selected
                         {selected.size > 0 && (
                             <button onClick={() => setSelected(new Set())} className="ml-2 text-xs underline-offset-2 hover:underline">

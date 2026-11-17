@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAdmin } from '@/lib/adminAuth';
 import { supabaseServer } from '@/lib/supabaseServer';
 import type { UpdatePlayerRequest } from '@/lib/types';
 
-export async function POST(request: NextRequest) {
+export const POST = withAdmin(async (request: NextRequest) => {
     try {
         const body: UpdatePlayerRequest = await request.json();
         const { name, photo_url, base_price, old_team, status = 'live' } = body;
@@ -71,4 +72,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
-}
+});

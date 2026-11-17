@@ -1,5 +1,6 @@
 'use client';
 
+import { ListPageSkeleton } from '@/components/Skeletons';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -184,11 +185,7 @@ export default function LivePage() {
     };
 
     if (playerLoading || historyLoading || teamsLoading) {
-        return (
-            <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
-                Loading auction…
-            </div>
-        );
+        return <ListPageSkeleton tiles={0} />;
     }
 
     const isLive = currentPlayer?.status === 'live';

@@ -1,5 +1,6 @@
 'use client';
 
+import { ListPageSkeleton } from '@/components/Skeletons';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -148,11 +149,7 @@ export default function TeamDashboardPage() {
     const filteredAuctionPurchases = auctionPurchases.filter(p => filterPlayer(p, Number(p.auction_price)));
 
     if (loading) {
-        return (
-            <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
-                Loading team…
-            </div>
-        );
+        return <ListPageSkeleton />;
     }
 
     const spent = analytics.totalPurse - analytics.purseRemaining;

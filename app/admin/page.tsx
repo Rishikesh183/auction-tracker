@@ -7,14 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
-import AdminLogin from '@/components/AdminLogin';
+import AdminGate, { type AdminCtx } from '@/components/AdminGate';
 import { formatCr, purseTone } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 export default function AdminPage() {
-    // Authentication (checked on the server, cookie-based)
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+    return <AdminGate>{(ctx) => <AuctionControl ctx={ctx} />}</AdminGate>;
+}
 
+function AuctionControl({ ctx }: { ctx: AdminCtx }) {
     const { currentPlayer: rawCurrentPlayer } = useCurrentPlayer();
     const currentPlayer = rawCurrentPlayer?.status === 'live' ? rawCurrentPlayer : null;
     const { teams } = useTeams();
@@ -31,17 +32,7 @@ export default function AdminPage() {
 
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        fetch('/api/admin/session')
-            .then((r) => r.json())
-            .then((d) => setIsAuthenticated(Boolean(d.authenticated)))
-            .catch(() => setIsAuthenticated(false));
-    }, []);
-
-    const handleLogout = async () => {
-        await fetch('/api/admin/session', { method: 'DELETE' });
-        setIsAuthenticated(false);
-    };
+    const handleLogout = () => ctx.logout();
 
     // Update form when current player changes
     useEffect(() => {
@@ -276,13 +267,6 @@ export default function AdminPage() {
 
     const fieldLabel = 'mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted-foreground';
 
-    if (isAuthenticated === null) {
-        return <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">Checking login…</div>;
-    }
-    if (!isAuthenticated) {
-        return <AdminLogin onDone={() => setIsAuthenticated(true)} />;
-    }
-
     return (
         <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8 md:py-10">
             <div className="flex items-end justify-between gap-4">
@@ -301,6 +285,7 @@ export default function AdminPage() {
                     <Button onClick={handleLogout} variant="ghost" size="sm">
                         Log out
                     </Button>
+                    {ctx.userMenu}
                 </div>
             </div>
 

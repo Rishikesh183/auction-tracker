@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAdmin } from '@/lib/adminAuth';
 import { uploadPlayerPhoto } from '@/lib/storage';
 
-export async function POST(request: NextRequest) {
+export const POST = withAdmin(async (request: NextRequest) => {
     try {
         const formData = await request.formData();
         const file = formData.get('file') as File;
@@ -45,4 +46,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
-}
+});

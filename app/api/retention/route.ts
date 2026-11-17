@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/adminAuth';
+import { revalidateTag } from 'next/cache';
+import { SQUADS_TAG } from '@/lib/squadsServer';
+import { withAdmin } from '@/lib/adminAuth';
 import { supabaseAdmin, hasServiceKey } from '@/lib/supabaseAdmin';
 import { SEASON, TEAM_CODES } from '@/lib/teams';
 import { slug, type SquadPlayer } from '@/lib/squads';
@@ -83,10 +85,7 @@ interface Undo {
     purse?: { team: string; purse: number | null };
 }
 
-export async function POST(req: NextRequest) {
-    if (!requireAdmin(req)) {
-        return NextResponse.json({ error: 'Not logged in' }, { status: 401 });
-    }
+export const POST = withAdmin(async (req: NextRequest) => {
     if (!hasServiceKey) {
         return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not set on the server' }, { status: 500 });
     }
@@ -230,6 +229,7 @@ export async function POST(req: NextRequest) {
                         purse: p === null ? null : price(p),
                     }));
                 }
+                if (!error) revalidateTag(SQUADS_TAG);
                 return error
                     ? NextResponse.json({ error: error.message }, { status: 400 })
                     : NextResponse.json({ success: true });
@@ -243,6 +243,8 @@ export async function POST(req: NextRequest) {
             const msg = error.code === '23505' ? 'That player is already in this team' : error.message;
             return NextResponse.json({ error: msg }, { status: 400 });
         }
+        // Server-rendered pages (SEO HTML, llms.txt, share images) refresh right away
+        revalidateTag(SQUADS_TAG);
         return NextResponse.json({ success: true, undo });
     } catch (e) {
         if (e instanceof BadRequest) {
@@ -251,4 +253,4 @@ export async function POST(req: NextRequest) {
         console.error('retention api error', e);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });
     }
-}
+});

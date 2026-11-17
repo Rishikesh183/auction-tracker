@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAdmin } from '@/lib/adminAuth';
 import { supabaseServer } from '@/lib/supabaseServer';
 
-export async function POST(request: NextRequest) {
+export const POST = withAdmin(async (request: NextRequest) => {
     try {
         const body = await request.json();
         const { player_id } = body;
@@ -39,4 +40,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
-}
+});

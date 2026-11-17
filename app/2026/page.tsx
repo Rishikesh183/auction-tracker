@@ -1,5 +1,6 @@
 'use client';
 
+import { ListPageSkeleton } from '@/components/Skeletons';
 import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Radio } from 'lucide-react';
@@ -40,11 +41,7 @@ export default function Auction2026Page() {
   };
 
   if (teamsLoading || statsLoading || playersLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
-        Loading dashboard…
-      </div>
-    );
+    return <ListPageSkeleton />;
   }
 
   const statTiles = [

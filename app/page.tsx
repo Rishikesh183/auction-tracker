@@ -7,6 +7,8 @@ import { summarize } from '@/lib/squads';
 import { TEAMS, RETENTION_LIVE_AT, AUCTION_2027_AT } from '@/lib/teams';
 import { countdown, useNow } from '@/components/retention';
 import { cn } from '@/lib/utils';
+import { FollowButton, SocialIcon } from '@/components/FollowUs';
+import { SOCIAL_LINKS } from '@/lib/socialLinks';
 
 function Clock({ target, now }: { target: Date; now: number | null }) {
     if (!now) return <span className="opacity-0">00d 00:00:00</span>;
@@ -125,6 +127,33 @@ export default function Home() {
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-foreground" />
             </Link>
+
+            {/* Follow */}
+            <div className="mt-4 flex flex-col items-start justify-between gap-3 rounded-xl border border-border bg-card px-6 py-4 sm:flex-row sm:items-center">
+                <div>
+                    <div className="font-semibold">Follow Cricmawa</div>
+                    <div className="text-sm text-muted-foreground">Retention reactions, auction breakdowns and daily cricket updates.</div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                        {SOCIAL_LINKS.slice(0, 4).map((l) => (
+                            <a
+                                key={l.key}
+                                href={l.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={l.label}
+                                title={l.label}
+                                className="flex h-8 w-8 items-center justify-center rounded-full text-sm text-white opacity-90 transition hover:scale-110 hover:opacity-100"
+                                style={{ background: l.bg }}
+                            >
+                                <SocialIcon k={l.key} />
+                            </a>
+                        ))}
+                    </div>
+                    <FollowButton label="All links" />
+                </div>
+            </div>
         </div>
     );
 }

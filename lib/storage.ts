@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabaseServer as supabase } from './supabaseServer';
 
 const BUCKET_NAME = 'players';
 

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withAdmin } from '@/lib/adminAuth';
 import { supabaseServer } from '@/lib/supabaseServer';
 import type { BidRequest } from '@/lib/types';
 
-export async function POST(request: NextRequest) {
+export const POST = withAdmin(async (request: NextRequest) => {
     try {
         const body: BidRequest = await request.json();
         const { player_id, player_name, team, amount } = body;
@@ -56,4 +57,4 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
-}
+});

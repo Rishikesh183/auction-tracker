@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Server-side Supabase client for API routes.
+// Uses the service role key when set (needed once the public write policies on
+// the 2026 tables are removed - see supabase/lock-public-writes.sql).
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Server-side Supabase client for API routes and server components
-export const supabaseServer = createClient(supabaseUrl, supabaseAnonKey);
+export const supabaseServer = createClient(supabaseUrl, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+});
