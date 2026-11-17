@@ -100,7 +100,9 @@ export function useSquads(opts: Options | PlayerChange = {}) {
                 apply(p ?? [], t ?? []);
                 setTrades((tr ?? []).map(normalizeTrade));
             } else {
-                const r = await fetch('/api/squads');
+                // no-store: skip the BROWSER cache (the API's stale-while-revalidate is meant for the CDN;
+                // in the browser it would hand back the previous poll's data). The CDN still caches it.
+                const r = await fetch('/api/squads', { cache: 'no-store' });
                 const d = await r.json();
                 if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
                 apply(d.players, d.teams, d.at, !useRealtime);

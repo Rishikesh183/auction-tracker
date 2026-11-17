@@ -23,7 +23,7 @@ export async function GET() {
         '',
         `Last updated: ${snap?.at ?? new Date().toISOString()}`,
         'Retention lists announced: 17 November 2026, 6:00 PM IST (deadline), streamed live on JioHotstar. IPL 2027 auction: 16 December 2026.',
-        `Totals so far: ${all.retained.length} retained, ${all.released.length} released, ${all.pending.length} awaiting decision.`,
+        `Totals so far: ${all.retainedOnly.length} retained, ${all.tradedIn.length} traded in, ${all.released.length} released, ${all.pending.length} awaiting decision.`,
         '',
         ...(snap?.trades?.length ? [`Trades (${snap.trades.length}): ${tradeSummary(snap.trades)}.`, ''] : []),
         '## Pages',
@@ -41,7 +41,8 @@ export async function GET() {
         lines.push(
             `## ${t.name} (${t.code})`,
             `Head coach: ${t.coach}. Auction purse: ${purses[t.code] != null ? cr(Number(purses[t.code])) : 'to be confirmed'}.`,
-            `Retained (${s.retained.length}): ${fmt(s.retained)}`,
+            `Retained (${s.retainedOnly.length}): ${fmt(s.retainedOnly)}`,
+            ...(s.tradedIn.length ? [`Traded in (${s.tradedIn.length}): ${fmt(s.tradedIn)}`] : []),
             `Released (${s.released.length}): ${fmt(s.released)}`,
             ...(s.pending.length ? [`Awaiting decision (${s.pending.length}): ${s.pending.map((p) => p.player_name).join('; ')}`] : []),
             ''

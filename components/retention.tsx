@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { getTeam } from '@/lib/teams';
-import type { SquadPlayer, SquadStatus } from '@/lib/squads';
+import { displayStatus, type DisplayStatus, type SquadPlayer } from '@/lib/squads';
 import PlayerAvatar from './PlayerAvatar';
 
 /** ₹18 Cr / ₹30 L */
@@ -62,13 +62,14 @@ export function PlayerTags({ p }: { p: SquadPlayer }) {
     );
 }
 
-export const STATUS_STYLE: Record<SquadStatus, { label: string; text: string; bg: string; dot: string }> = {
+export const STATUS_STYLE: Record<DisplayStatus, { label: string; text: string; bg: string; dot: string }> = {
     retained: { label: 'Retained', text: 'text-success', bg: 'bg-success/15', dot: 'bg-success' },
     released: { label: 'Released', text: 'text-destructive', bg: 'bg-destructive/15', dot: 'bg-destructive' },
     pending: { label: 'Awaiting', text: 'text-muted-foreground', bg: 'bg-muted', dot: 'bg-muted-foreground' },
+    traded: { label: 'Traded', text: 'text-[#d8b4fe]', bg: 'bg-[#a855f7]/20', dot: 'bg-[#a855f7]' },
 };
 
-export function StatusPill({ status, className }: { status: SquadStatus; className?: string }) {
+export function StatusPill({ status, className }: { status: DisplayStatus; className?: string }) {
     const s = STATUS_STYLE[status];
     return (
         <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider', s.bg, s.text, className)}>
@@ -77,6 +78,13 @@ export function StatusPill({ status, className }: { status: SquadStatus; classNa
     );
 }
 
+const FRESH_BG: Record<DisplayStatus, string> = {
+    retained: 'bg-success/15',
+    released: 'bg-destructive/15',
+    traded: 'bg-[#a855f7]/15',
+    pending: '',
+};
+
 /** One line in a squad list. `fresh` = changed in the last few seconds. */
 export function PlayerRow({ p, fresh, showStatus }: { p: SquadPlayer; fresh?: boolean; showStatus?: boolean }) {
     const released = p.status === 'released';
@@ -84,7 +92,7 @@ export function PlayerRow({ p, fresh, showStatus }: { p: SquadPlayer; fresh?: bo
         <li
             className={cn(
                 'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors duration-1000',
-                fresh && (p.status === 'retained' ? 'bg-success/15' : p.status === 'released' ? 'bg-destructive/15' : '')
+                fresh && FRESH_BG[displayStatus(p)]
             )}
         >
             <PlayerAvatar photoKey={p.photo_key} name={p.player_name} className={cn('h-7 w-7', released && 'opacity-50 grayscale')} />
@@ -92,7 +100,7 @@ export function PlayerRow({ p, fresh, showStatus }: { p: SquadPlayer; fresh?: bo
             <span className="flex shrink-0 items-center gap-1">
                 <PlayerTags p={p} />
             </span>
-            {showStatus && <StatusPill status={p.status} />}
+            {showStatus && <StatusPill status={displayStatus(p)} />}
             <span
                 className={cn(
                     'w-14 shrink-0 text-right font-semibold tabular-nums',
@@ -105,12 +113,12 @@ export function PlayerRow({ p, fresh, showStatus }: { p: SquadPlayer; fresh?: bo
     );
 }
 
-export function SectionLabel({ status, count }: { status: SquadStatus; count: number }) {
+export function SectionLabel({ status, count }: { status: DisplayStatus; count: number }) {
     const s = STATUS_STYLE[status];
     return (
         <div className="flex items-center gap-2 px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             <span className={cn('h-1.5 w-1.5 rounded-full', s.dot)} />
-            {s.label}
+            {status === 'traded' ? 'Traded in' : s.label}
             <span className="tabular-nums">{count}</span>
         </div>
     );

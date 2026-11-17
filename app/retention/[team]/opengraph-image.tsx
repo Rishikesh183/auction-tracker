@@ -18,7 +18,7 @@ export default async function Image({ params }: { params: Promise<{ team: string
         title: team.name,
         accent: team.accent,
         stats: [
-            { label: 'Retained', value: String(s.retained.length), color: '#2fbf71' },
+            { label: 'Retained', value: String(s.retainedOnly.length), color: '#2fbf71' },
             { label: 'Released', value: String(s.released.length), color: '#e5484d' },
             ...(purse != null ? [{ label: 'Purse left', value: `₹${purse} Cr`, color: '#f2b33d' }] : []),
         ],

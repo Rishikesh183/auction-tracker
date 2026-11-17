@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
 import { ArrowLeftRight, Check, ChevronDown, Plus, RotateCcw, Search, Undo2, X } from 'lucide-react';
 import { useSquads } from '@/lib/useSquads';
-import { summarize, type SquadPlayer, type SquadStatus } from '@/lib/squads';
+import { displayStatus, summarize, type SquadPlayer, type SquadStatus } from '@/lib/squads';
 import { TEAMS, getTeam } from '@/lib/teams';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -408,7 +408,7 @@ function AdminRow({
                         <span className="text-xs text-muted-foreground tabular-nums">{formatPrice(p.price)}</span>
                     </span>
                 </button>
-                <StatusPill status={p.status} className="hidden sm:inline-flex" />
+                <StatusPill status={displayStatus(p)} className="hidden sm:inline-flex" />
                 <div className="flex shrink-0 gap-1">
                     <Button
                         size="icon"
