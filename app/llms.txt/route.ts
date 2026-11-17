@@ -2,6 +2,7 @@ import { trySquadSnapshot } from '@/lib/squadsServer';
 import { summarize } from '@/lib/squads';
 import { TEAMS } from '@/lib/teams';
 import { SITE_DESCRIPTION, abs } from '@/lib/site';
+import { tradeSummary } from '@/lib/retentionFaq';
 
 // /llms.txt — plain-text summary for AI assistants and answer engines
 // (ChatGPT, Claude, Perplexity...). Always reflects the live lists.
@@ -24,6 +25,7 @@ export async function GET() {
         'Retention lists announced: 17 November 2026, 6:00 PM IST (deadline), streamed live on JioHotstar. IPL 2027 auction: 16 December 2026.',
         `Totals so far: ${all.retained.length} retained, ${all.released.length} released, ${all.pending.length} awaiting decision.`,
         '',
+        ...(snap?.trades?.length ? [`Trades (${snap.trades.length}): ${tradeSummary(snap.trades)}.`, ''] : []),
         '## Pages',
         `- [All teams: retained and released players](${abs('/retention')})`,
         ...TEAMS.map((t) => `- [${t.name} (${t.code}) retention list 2027](${abs(`/retention/${t.code}`)})`),

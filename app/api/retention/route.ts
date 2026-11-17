@@ -4,7 +4,7 @@ import { SQUADS_TAG } from '@/lib/squadsServer';
 import { withAdmin } from '@/lib/adminAuth';
 import { supabaseAdmin, hasServiceKey } from '@/lib/supabaseAdmin';
 import { SEASON, TEAM_CODES } from '@/lib/teams';
-import { slug, type SquadPlayer } from '@/lib/squads';
+import { slug, normalizeTrade, type SquadPlayer, type Trade, type TradeLeg } from '@/lib/squads';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +73,29 @@ function restorableRow(r: Partial<SquadPlayer>) {
     };
 }
 
+/** A trade row from an undo snapshot, re-validated before writing back. */
+function restorableTrade(t: Partial<Trade>) {
+    if (!t || typeof t.id !== 'string' || !UUID.test(t.id)) throw new BadRequest('Bad snapshot trade');
+    if (!Array.isArray(t.legs) || t.legs.length > 20) throw new BadRequest('Bad snapshot trade');
+    return {
+        id: t.id,
+        seq: Number.isFinite(Number(t.seq)) ? Number(t.seq) : undefined,
+        season: SEASON,
+        team_a: team(t.team_a),
+        team_b: team(t.team_b),
+        legs: t.legs.map((l) => ({
+            player_id: typeof l.player_id === 'string' && UUID.test(l.player_id) ? l.player_id : null,
+            player_name: text(l.player_name),
+            from_team: team(l.from_team),
+            to_team: team(l.to_team),
+            price: price(l.price),
+            photo_key: typeof l.photo_key === 'string' ? l.photo_key.slice(0, 120) : null,
+            country: l.country ? country(l.country) : null,
+        })),
+        created_at: typeof t.created_at === 'string' ? t.created_at : undefined,
+    };
+}
+
 /**
  * Undo info returned with every action:
  *  players   - rows as they were BEFORE the action (written back on undo)
@@ -83,6 +106,10 @@ interface Undo {
     players: SquadPlayer[];
     removeIds: string[];
     purse?: { team: string; purse: number | null };
+    /** trade rows the action created (deleted on undo) */
+    removeTradeIds?: string[];
+    /** trade rows the action deleted (written back on undo) */
+    trades?: Trade[];
 }
 
 export const POST = withAdmin(async (req: NextRequest) => {
@@ -190,6 +217,72 @@ export const POST = withAdmin(async (req: NextRequest) => {
                 break;
             }
 
+            // Trade between two teams: every listed player switches to the other team at
+            // the new price (marked retained + TRADE), and the trade is logged for the Trades tab.
+            // One-way trades (cash deals) just list players from one side.
+            case 'trade': {
+                const a = team(body.teamA);
+                const b = team(body.teamB);
+                if (a === b) throw new BadRequest('Pick two different teams');
+                if (!Array.isArray(body.legs) || body.legs.length === 0 || body.legs.length > 12) {
+                    throw new BadRequest('Pick at least one player');
+                }
+                const legsIn = body.legs.map((l: { id: unknown; price: unknown }) => ({ id: ids([l?.id])[0], price: price(l?.price) }));
+                const legIds = legsIn.map((l: { id: string }) => l.id);
+                if (new Set(legIds).size !== legIds.length) throw new BadRequest('Same player picked twice');
+
+                await snapshot(players().in('id', legIds));
+                const byId = new Map(undo.players.map((p) => [p.id, p]));
+                const legs: TradeLeg[] = [];
+                for (const l of legsIn) {
+                    const p = byId.get(l.id);
+                    if (!p) throw new BadRequest('Player not found');
+                    if (p.team_code !== a && p.team_code !== b) throw new BadRequest(`${p.player_name} is not in ${a} or ${b}`);
+                    legs.push({
+                        player_id: p.id,
+                        player_name: p.player_name,
+                        from_team: p.team_code,
+                        to_team: p.team_code === a ? b : a,
+                        price: l.price,
+                        photo_key: p.photo_key,
+                        country: p.country,
+                    });
+                }
+
+                const results = await Promise.all(
+                    legs.map((l) =>
+                        db
+                            .from('squad_players')
+                            .update({ team_code: l.to_team, price: l.price, acquired_via: 'trade', ...statusPatch('retained') })
+                            .eq('id', l.player_id!)
+                            .eq('season', SEASON)
+                    )
+                );
+                error = results.find((r) => r.error)?.error ?? null;
+                if (!error) {
+                    const ins = await db.from('trades').insert({ season: SEASON, team_a: a, team_b: b, legs }).select('id').single();
+                    error = ins.error;
+                    if (ins.data) undo.removeTradeIds = [ins.data.id];
+                    if (error && /trades/.test(error.message)) error = { ...error, message: `${error.message} (run supabase/trades.sql)` };
+                }
+                if (error) {
+                    // Put every player back so a half-done trade never shows up
+                    await db.from('squad_players').upsert(undo.players.map(restorableRow), { onConflict: 'id' });
+                }
+                break;
+            }
+
+            // Remove a trade from the history only (players stay where they are)
+            case 'deleteTrade': {
+                const id = ids([body.id])[0];
+                const { data, error: e } = await db.from('trades').select('*').eq('id', id).maybeSingle();
+                if (e) throw e;
+                if (!data) throw new BadRequest('Trade not found');
+                undo.trades = [normalizeTrade(data)];
+                ({ error } = await db.from('trades').delete().eq('id', id));
+                break;
+            }
+
             case 'deletePlayer': {
                 const id = ids([body.id]);
                 await snapshot(players().in('id', id));
@@ -219,6 +312,16 @@ export const POST = withAdmin(async (req: NextRequest) => {
                 }
                 if (rows.length) {
                     ({ error } = await db.from('squad_players').upsert(rows, { onConflict: 'id' }));
+                    if (error) break;
+                }
+                const removeTrades = ids(body.removeTradeIds ?? [], { allowEmpty: true, max: 50 });
+                if (removeTrades.length) {
+                    ({ error } = await db.from('trades').delete().in('id', removeTrades));
+                    if (error) break;
+                }
+                const tradeRows = Array.isArray(body.trades) ? body.trades.slice(0, 50).map(restorableTrade) : [];
+                if (tradeRows.length) {
+                    ({ error } = await db.from('trades').upsert(tradeRows, { onConflict: 'id' }));
                     if (error) break;
                 }
                 if (body.purse) {

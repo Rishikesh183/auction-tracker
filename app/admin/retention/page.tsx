@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast, Toaster } from 'sonner';
-import { Check, ChevronDown, Plus, RotateCcw, Search, Undo2, X } from 'lucide-react';
+import { ArrowLeftRight, Check, ChevronDown, Plus, RotateCcw, Search, Undo2, X } from 'lucide-react';
 import { useSquads } from '@/lib/useSquads';
 import { summarize, type SquadPlayer, type SquadStatus } from '@/lib/squads';
 import { TEAMS, getTeam } from '@/lib/teams';
@@ -16,6 +16,7 @@ import { Spinner } from '@/components/Skeletons';
 import { PlayerTags, StatusPill, TeamChip, formatPrice } from '@/components/retention';
 import { cn } from '@/lib/utils';
 import LiveStreamControl from '@/components/LiveStreamControl';
+import TradeForm from '@/components/TradeForm';
 
 async function api(body: Record<string, unknown>) {
     const res = await fetch('/api/retention', {
@@ -31,7 +32,13 @@ async function api(body: Record<string, unknown>) {
 interface UndoEntry {
     id: number;
     label: string;
-    undo: { players: unknown[]; removeIds: string[]; purse?: { team: string; purse: number | null } };
+    undo: {
+        players: unknown[];
+        removeIds: string[];
+        purse?: { team: string; purse: number | null };
+        removeTradeIds?: string[];
+        trades?: unknown[];
+    };
 }
 let undoSeq = 0;
 
@@ -42,7 +49,8 @@ export default function AdminRetentionPage() {
 }
 
 function RetentionControl({ ctx }: { ctx: AdminCtx }) {
-    const { players, purses, loading, error, reload } = useSquads({ fresh: true });
+    const { players, purses, trades, loading, error, reload } = useSquads({ fresh: true });
+    const [showTrade, setShowTrade] = useState(false);
     const [team, setTeam] = useState(TEAMS[0].code);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [query, setQuery] = useState('');
@@ -164,6 +172,15 @@ function RetentionControl({ ctx }: { ctx: AdminCtx }) {
                         <Undo2 />
                         {undoStack[0] ? `Undo · ${undoStack[0].label}` : 'Undo'}
                     </Button>
+                    <Button
+                        size="sm"
+                        variant={showTrade ? 'secondary' : 'outline'}
+                        className="border-[#a855f7]/50 text-[#d8b4fe]"
+                        onClick={() => setShowTrade(!showTrade)}
+                    >
+                        <ArrowLeftRight />
+                        Trade
+                    </Button>
                     <Button asChild variant="outline" size="sm">
                         <Link href="/retention" target="_blank">
                             Open viewer
@@ -184,6 +201,19 @@ function RetentionControl({ ctx }: { ctx: AdminCtx }) {
             </p>
 
             <LiveStreamControl onUnauthorized={ctx.recheck} />
+
+            {showTrade && (
+                <div className="mt-6">
+                    <TradeForm
+                        players={players}
+                        trades={trades}
+                        defaultTeam={team}
+                        busy={busy}
+                        run={run}
+                        onClose={() => setShowTrade(false)}
+                    />
+                </div>
+            )}
 
             {/* Team picker */}
             <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-5">

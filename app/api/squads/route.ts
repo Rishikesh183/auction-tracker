@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabaseServer';
 import { SEASON } from '@/lib/teams';
+import { fetchTrades } from '@/lib/squadsServer';
 
 // Public, cached snapshot of all squads for the season.
 // Viewers load this instead of querying Supabase directly, so a spike of
@@ -12,13 +13,14 @@ let cache: { at: number; body: unknown } | null = null;
 let inflight: Promise<unknown> | null = null;
 
 async function fetchSnapshot() {
-    const [p, t] = await Promise.all([
+    const [p, t, trades] = await Promise.all([
         supabaseServer.from('squad_players').select('*').eq('season', SEASON).limit(1000),
         supabaseServer.from('season_teams').select('team_code, purse').eq('season', SEASON),
+        fetchTrades(),
     ]);
     if (p.error) throw p.error;
     if (t.error) throw t.error;
-    return { players: p.data ?? [], teams: t.data ?? [], at: new Date().toISOString() };
+    return { players: p.data ?? [], teams: t.data ?? [], trades, at: new Date().toISOString() };
 }
 
 export async function GET() {
