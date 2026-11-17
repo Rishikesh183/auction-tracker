@@ -122,10 +122,10 @@ export default function RetentionBoard({ initial }: { initial?: SquadSnapshot | 
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <span
                             className="flex items-center gap-1.5 text-xs"
-                            title={live ? 'Updates arrive instantly' : 'Live connection busy - refreshing every few seconds'}
+                            title={live ? 'Live - updates within a few seconds' : 'Reconnecting - showing the last update'}
                         >
                             <span className={cn('h-1.5 w-1.5 rounded-full', live ? 'bg-success' : 'bg-warning')} />
-                            {live ? 'Live' : 'Auto-refresh'}
+                            {live ? 'Live' : 'Reconnecting'}
                         </span>
                         <span className="tabular-nums">
                             <b className="text-foreground">{teamsAnnounced}</b>/10 teams announced

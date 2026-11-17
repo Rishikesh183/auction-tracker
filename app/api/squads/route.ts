@@ -34,11 +34,17 @@ export async function GET() {
         return NextResponse.json(cache.body, {
             headers: {
                 // CDN (Vercel etc.) may serve this for 3 s, then refresh in the background
-                'Cache-Control': 'public, max-age=0, s-maxage=3, stale-while-revalidate=10',
+                'Cache-Control': 'public, max-age=0, s-maxage=3, stale-while-revalidate=30',
             },
         });
     } catch (e) {
         console.error('squads snapshot failed', e);
+        // Supabase hiccup: keep serving the last good snapshot instead of an error
+        if (cache) {
+            return NextResponse.json(cache.body, {
+                headers: { 'Cache-Control': 'public, max-age=0, s-maxage=5, stale-while-revalidate=30', 'X-Snapshot-Stale': '1' },
+            });
+        }
         return NextResponse.json({ error: 'Could not load squads' }, { status: 503 });
     }
 }

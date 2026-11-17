@@ -33,12 +33,17 @@ export const getSquadSnapshot = unstable_cache(
     { revalidate: 30, tags: [SQUADS_TAG] }
 );
 
+// Last good snapshot on this server instance, so a Supabase outage during a
+// page re-render doesn't replace the cached page with empty lists.
+let lastGood: SquadSnapshot | null = null;
+
 /** Snapshot or null (pages still render if the DB is unreachable). */
 export async function trySquadSnapshot(): Promise<SquadSnapshot | null> {
     try {
-        return await getSquadSnapshot();
+        lastGood = await getSquadSnapshot();
+        return lastGood;
     } catch (e) {
         console.error('squad snapshot failed', e);
-        return null;
+        return lastGood;
     }
 }
