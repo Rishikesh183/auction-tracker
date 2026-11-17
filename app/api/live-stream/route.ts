@@ -20,15 +20,15 @@ export async function GET() {
 
 // POST { url: string | null }: admin sets or clears the live stream link.
 export const POST = withAdmin(async (req: NextRequest) => {
-    if (!hasServiceKey) {
-        return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not set' }, { status: 500 });
-    }
     const body = await req.json().catch(() => ({}));
     const raw = body?.url;
     const clearing = raw == null || String(raw).trim() === '';
     const url = clearing ? null : cleanStreamUrl(raw);
     if (!clearing && !url) {
         return NextResponse.json({ error: 'Enter a valid http(s) link' }, { status: 400 });
+    }
+    if (!hasServiceKey) {
+        return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not set' }, { status: 500 });
     }
     const { error } = await supabaseAdmin
         .from('site_settings')
